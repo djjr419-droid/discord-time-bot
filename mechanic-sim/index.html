@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Torque & Tread — Mechanic Simulator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+      "gsap": "https://cdn.jsdelivr.net/npm/gsap@3.12.5/index.js"
+    }
+  }
+  </script>
+</head>
+<body>
+  <canvas id="viewport"></canvas>
+
+  <!-- ============================== HUD ============================== -->
+  <div id="hud" class="hidden">
+    <div id="vignette"></div>
+    <div id="flash"></div>
+
+    <header id="topbar">
+      <div class="brand">
+        <span class="logo">T&amp;T</span>
+        <div>
+          <div class="brand-name">TORQUE &amp; TREAD</div>
+          <div class="brand-sub">Day <span id="day">1</span> · Shop Lv <span id="level">1</span></div>
+        </div>
+      </div>
+      <div class="stat"><label>Cash</label><b id="cash">$0</b></div>
+      <div class="stat"><label>Reputation</label><span id="rep" class="stars"></span></div>
+      <div class="stat clock"><label>Labor clock</label><b id="clock">--:--</b><small id="book"></small></div>
+      <div class="spacer"></div>
+      <button class="chip" id="btn-jobs" title="Job board (J)">📋 Jobs</button>
+      <button class="chip" id="btn-shop" title="Shop terminal (B)">🛒 Shop</button>
+      <button class="chip" id="btn-help" title="Controls (H)">❔</button>
+      <button class="chip" id="btn-mute" title="Mute (M)">🔊</button>
+    </header>
+
+    <section id="jobcard" class="panel hidden">
+      <div class="jc-head"><span id="jc-model"></span><span id="jc-customer"></span></div>
+      <div id="jc-complaint"></div>
+      <ol id="jc-objectives"></ol>
+    </section>
+
+    <aside id="sidepanel" class="panel hidden">
+      <div class="sp-tabs">
+        <button data-tab="diag" class="active">Diagnostics</button>
+        <button data-tab="parts">Parts out <span id="parts-count">0</span></button>
+      </div>
+      <div class="sp-body" data-body="diag">
+        <div id="diag-codes"><p class="muted">Run a scan at the diagnostic cart laptop.</p></div>
+        <div id="diag-live"></div>
+        <div id="diag-meter"></div>
+        <h4>Fluids</h4>
+        <div id="fluids"></div>
+        <div class="actions">
+          <button id="btn-test" class="primary">▶ Start &amp; test</button>
+          <button id="btn-handover" class="good">✔ Hand over</button>
+        </div>
+      </div>
+      <div class="sp-body hidden" data-body="parts"><div id="parts-list"></div></div>
+    </aside>
+
+    <nav id="views"></nav>
+    <div id="quick">
+      <button class="chip" id="btn-lift" title="Lift up/down (L)">⬍ Lift</button>
+      <button class="chip" id="btn-lamp" title="Work lamp (F)">💡 Lamp</button>
+      <button class="chip" id="btn-back" title="Step back (Space / right-click)">↩ Step back</button>
+    </div>
+
+    <div id="hotbar"></div>
+    <div id="crosshair"></div>
+    <div id="tooltip" class="hidden"></div>
+    <div id="toasts"></div>
+
+    <section id="partcard" class="panel hidden"></section>
+  </div>
+
+  <!-- ============================== MODALS ============================== -->
+  <div id="modal" class="hidden"><div class="modal-box" id="modal-box"></div></div>
+
+  <div id="title">
+    <div class="title-inner">
+      <div class="title-logo">TORQUE <span>&amp;</span> TREAD</div>
+      <div class="title-sub">A first-person mechanic simulator</div>
+      <div id="loading"><div id="loading-bar"></div></div>
+      <button id="btn-start" class="primary big" disabled>Loading…</button>
+      <div class="title-hints">
+        <span>🖱 Click parts &amp; fasteners</span><span>🖱 Right-drag to look</span><span>1–9 tools</span><span>Q / E views</span>
+      </div>
+      <label class="quality">Graphics
+        <select id="quality">
+          <option value="low">Low</option>
+          <option value="high" selected>High (AO + bloom)</option>
+          <option value="ultra">Ultra (+ SSR)</option>
+        </select>
+      </label>
+      <button id="btn-wipe" class="link">Reset save</button>
+    </div>
+  </div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
