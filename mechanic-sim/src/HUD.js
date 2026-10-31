@@ -423,6 +423,18 @@ export class HUD {
     b.disabled = false;
     b.textContent = 'Open the shop';
     b.onclick = () => { $('#title').classList.add('hidden'); onStart($('#quality').value); };
-    $('#btn-wipe').onclick = () => { if (confirm('Reset all progress?')) { this.game.economy.wipe(); this.toast('Save reset.'); } };
+    // two-tap confirmation (native confirm() dialogs are blocked in embedded viewers)
+    const wipe = $('#btn-wipe');
+    let armed = null;
+    wipe.onclick = () => {
+      if (!armed) {
+        wipe.textContent = 'Tap again to erase all progress';
+        armed = setTimeout(() => { armed = null; wipe.textContent = 'Reset save'; }, 3000);
+        return;
+      }
+      clearTimeout(armed); armed = null;
+      this.game.economy.wipe();
+      wipe.textContent = 'Save erased';
+    };
   }
 }
