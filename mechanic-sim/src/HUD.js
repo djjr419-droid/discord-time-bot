@@ -15,6 +15,11 @@ export class HUD {
     this.partCardFor = null;
     this.shopTab = 'tools';
     $('#btn-jobs').onclick = () => game.openJobBoard();
+    $('#btn-card').onclick = () => this.togglePanel('#jobcard', '#btn-card');
+    $('#btn-panel').onclick = () => this.togglePanel('#sidepanel', '#btn-panel');
+    this.isTouch = matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 1;
+    document.body.classList.toggle('touch', this.isTouch);
+    if (this.isTouch) $('#quality').value = 'low';
     $('#btn-shop').onclick = () => this.openShop();
     $('#btn-help').onclick = () => this.openHelp();
     $('#btn-mute').onclick = () => { const m = game.audio.toggleMute(); $('#btn-mute').textContent = m ? '🔇' : '🔊'; };
@@ -30,6 +35,22 @@ export class HUD {
   }
 
   show() { this.el.classList.remove('hidden'); }
+
+  /** Small screens: job card & side panel become toggleable overlays instead of always-on panels. */
+  setCompact(on) {
+    if (this.compact === on) return;
+    this.compact = on;
+    this.el.classList.toggle('compact', on);
+    if (!on) { $('#jobcard').classList.remove('open'); $('#sidepanel').classList.remove('open'); }
+  }
+
+  togglePanel(sel, btn) {
+    const el = $(sel);
+    const open = !el.classList.contains('open');
+    // only one overlay at a time on small screens
+    for (const [s, b] of [['#jobcard', '#btn-card'], ['#sidepanel', '#btn-panel']]) { $(s).classList.remove('open'); $(b).classList.remove('on'); }
+    if (open) { el.classList.add('open'); $(btn).classList.add('on'); this.closePartCard(); }
+  }
 
   // ---------------------------------------------------------------- stats
   refreshStats() {
@@ -80,6 +101,8 @@ export class HUD {
   showJob(job) {
     $('#jobcard').classList.remove('hidden');
     $('#sidepanel').classList.remove('hidden');
+    $('#btn-card').classList.remove('hidden');
+    $('#btn-panel').classList.remove('hidden');
     $('#jc-model').textContent = job.model;
     $('#jc-customer').textContent = job.customer;
     $('#jc-complaint').textContent = `“${job.complaint}”`;
@@ -91,6 +114,8 @@ export class HUD {
   hideJob() {
     $('#jobcard').classList.add('hidden');
     $('#sidepanel').classList.add('hidden');
+    $('#btn-card').classList.add('hidden');
+    $('#btn-panel').classList.add('hidden');
     this.closePartCard();
   }
 
@@ -109,6 +134,7 @@ export class HUD {
       ? scan.codes.map(([c, d]) => `<div class="code"><b>${c}</b><span>${d}</span></div>`).join('')
       : '<div class="code ok"><b>OK</b><span>No stored trouble codes. Fault may be mechanical — inspect by hand.</span></div>';
     $('#diag-codes').innerHTML = codes;
+    if (this.compact && !$('#sidepanel').classList.contains('open')) this.togglePanel('#sidepanel', '#btn-panel');
     const L = scan.live;
     $('#diag-live').innerHTML = `<div class="live">
       <div>Idle RPM<b>${L.rpm}</b></div><div>Coolant<b>${L.coolant}°C</b></div>
@@ -193,6 +219,7 @@ export class HUD {
         ${!removed && part.electrical ? `<button class="ghost" data-a="measure">📟 Measure</button>` : ''}
       </div>`;
     $('#partcard').classList.remove('hidden');
+    if (this.compact) { for (const [s, b] of [['#jobcard', '#btn-card'], ['#sidepanel', '#btn-panel']]) { $(s).classList.remove('open'); $(b).classList.remove('on'); } }
     $('#partcard .pc-close').onclick = () => this.closePartCard();
     $('#partcard').querySelectorAll('[data-a]').forEach((b) => { b.onclick = () => this.game.partAction(part, b.dataset.a); });
   }
@@ -216,8 +243,8 @@ export class HUD {
   tooltip(html, x, y) {
     if (!html) { this.tooltipEl.classList.add('hidden'); return; }
     this.tooltipEl.innerHTML = html;
-    this.tooltipEl.style.left = `${Math.min(x, innerWidth - 300)}px`;
-    this.tooltipEl.style.top = `${Math.min(y, innerHeight - 120)}px`;
+    this.tooltipEl.style.left = `${Math.max(4, Math.min(x, innerWidth - 300))}px`;
+    this.tooltipEl.style.top = `${Math.max(4, Math.min(y, innerHeight - 120))}px`;
     this.tooltipEl.classList.remove('hidden');
   }
 
@@ -365,7 +392,13 @@ export class HUD {
 
   openHelp() {
     this.modal(`<h2>Shop manual</h2><p class="lead">You work from one service bay. The camera moves between work positions; your hands do the rest.</p>
-      <div class="help-grid">
+      ${this.isTouch ? `<div class="help-grid">
+        <div><kbd>Tap</kbd> fastener / part / equipment</div><div><kbd>Drag</kbd> look around</div>
+        <div><kbd>Pinch</kbd> focus zoom</div><div><kbd>Hold</kbd> inspect what's under your finger</div>
+        <div><kbd>↩ Step back</kbd> leave a close-up</div><div><kbd>Bottom bar</kbd> tools · <kbd>chips</kbd> work positions</div>
+        <div><kbd>📝</kbd> job card · <kbd>🩺</kbd> diagnostics & parts</div><div><kbd>⬆ Lift</kbd> · <kbd>💡 Lamp</kbd></div>
+      </div>` : ''}
+      <div class="help-grid ${this.isTouch ? 'hidden' : ''}">
         <div><kbd>Left-click</kbd> fastener / part / equipment</div><div><kbd>Right-drag</kbd> look around</div>
         <div><kbd>Mouse wheel</kbd> focus zoom</div><div><kbd>Space</kbd> / right-click: step back</div>
         <div><kbd>1–9</kbd> select tool</div><div><kbd>Q</kbd> / <kbd>E</kbd> cycle work positions</div>

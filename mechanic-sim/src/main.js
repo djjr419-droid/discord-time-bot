@@ -19,6 +19,8 @@ import { HUD } from './HUD.js';
 import { setGlow } from './Materials.js';
 
 const V3 = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
+export const IS_TOUCH = matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 1;
+const TAP_SLOP = 10; // px a finger may wander and still count as a tap
 
 export const STATE = {
   BOOT: 'boot', IDLE: 'idle', ARRIVING: 'arriving', SERVICE: 'service',
@@ -41,7 +43,7 @@ class CameraController {
     this.t = 1;
     this.lean = { w: 0, pos: V3(), look: V3(), active: false };
     this.yaw = 0; this.pitch = 0;
-    this.fov = 58; this.fovTarget = 58;
+    this.fov = this.baseFov; this.fovTarget = this.fov;
     this.cur = { pos: this.def.pos.clone(), look: this.def.look.clone() };
     this.breath = 0;
     this._drag = null;
@@ -63,8 +65,35 @@ class CameraController {
       }
     });
     dom.addEventListener('contextmenu', (e) => e.preventDefault());
+    // touch: one-finger drag looks around, two-finger pinch zooms
+    this.touches = new Map();
+    dom.addEventListener('pointerdown', (e) => {
+      if (e.pointerType !== 'touch') return;
+      this.touches.set(e.pointerId, { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, look: false });
+      if (this.touches.size === 2) this._pinch = this._pinchDist();
+    });
+    addEventListener('pointermove', (e) => {
+      const t = this.touches.get(e.pointerId);
+      if (!t) return;
+      const dx = e.clientX - t.x, dy = e.clientY - t.y;
+      t.x = e.clientX; t.y = e.clientY;
+      if (this.touches.size >= 2) {
+        const d = this._pinchDist();
+        this.fovTarget = THREE.MathUtils.clamp(this.fovTarget - (d - this._pinch) * 0.09, 24, this.baseFov + 14);
+        this._pinch = d;
+        return;
+      }
+      if (!t.look && Math.hypot(t.x - t.sx, t.y - t.sy) > TAP_SLOP) t.look = true;
+      if (t.look) {
+        this.yaw = THREE.MathUtils.clamp(this.yaw + dx * 0.005, -1.1, 1.1);
+        this.pitch = THREE.MathUtils.clamp(this.pitch + dy * 0.005, -0.7, 0.6);
+      }
+    });
+    const end = (e) => this.touches.delete(e.pointerId);
+    addEventListener('pointerup', end);
+    addEventListener('pointercancel', end);
     dom.addEventListener('wheel', (e) => {
-      this.fovTarget = THREE.MathUtils.clamp(this.fovTarget + Math.sign(e.deltaY) * 4, 26, 70);
+      this.fovTarget = THREE.MathUtils.clamp(this.fovTarget + Math.sign(e.deltaY) * 4, 24, this.baseFov + 14);
     }, { passive: true });
   }
 
@@ -84,7 +113,18 @@ class CameraController {
     gsap.to(this, { t: 1, duration: dur, ease: 'power2.inOut' });
     gsap.to(this, { yaw: 0, pitch: 0, duration: dur * 0.8, ease: 'power2.out' });
     this.stepBack(dur * 0.6);
-    this.fovTarget = 58;
+    this.fovTarget = this.baseFov;
+  }
+
+  _pinchDist() {
+    const [a, b] = [...this.touches.values()];
+    return Math.hypot(a.x - b.x, a.y - b.y);
+  }
+
+  /** Narrow / portrait screens get a wider vertical FOV so the work area still fits. */
+  get baseFov() {
+    const a = this.camera.aspect;
+    return a < 0.8 ? 80 : a < 1.3 ? 68 : 58;
   }
 
   /** Leans the head/body toward a point so the arms can physically reach it. */
@@ -217,7 +257,13 @@ class Game {
   setupComposer(quality) {
     this.quality = quality;
     const r = this.renderer;
-    r.setPixelRatio(Math.min(devicePixelRatio, quality === 'low' ? 1 : 1.5));
+    r.setPixelRatio(Math.min(devicePixelRatio, quality === 'low' ? (IS_TOUCH ? 1.25 : 1) : 1.5));
+    // lighter shadows on low / mobile GPUs
+    const big = quality === 'low' ? 1024 : 2048;
+    for (const l of [this.garage.key, this.garage.lamp.light]) {
+      const size = l === this.garage.key ? big : big / 2;
+      if (l.shadow.mapSize.x !== size) { l.shadow.mapSize.set(size, size); l.shadow.map?.dispose(); l.shadow.map = null; }
+    }
     const w = innerWidth, h = innerHeight;
     const comp = (this.composer = new EffectComposer(r));
     comp.setSize(w, h);
@@ -276,6 +322,9 @@ class Game {
   resize() {
     this.camera.aspect = innerWidth / innerHeight;
     this.camera.updateProjectionMatrix();
+    this.cam.fovTarget = this.cam.baseFov;
+    this.tools.rig.setAspect(this.camera.aspect);
+    this.hud.setCompact(IS_TOUCH || innerWidth <= 900);
     this.renderer.setSize(innerWidth, innerHeight);
     this.composer.setSize(innerWidth, innerHeight);
   }
@@ -285,11 +334,13 @@ class Game {
     this.audio.init();
     if (quality !== 'high') this.setupComposer(quality);
     this.hud.show();
+    this.resize();
+    if (IS_TOUCH && innerHeight > innerWidth) setTimeout(() => this.hud.toast('Tip: rotate to landscape for the best view.', '', 3500), 2500);
     this.renderViews();
     this.hud.setToggles({ lift: false, lamp: this.garage.lamp.on });
     this.setView('overview');
     setTimeout(() => {
-      this.hud.toast('Welcome to the shop. Check the job board for work (J).', 'ok', 3500);
+      this.hud.toast(`Welcome to the shop. Check the job board for work (${IS_TOUCH ? '📋' : 'J'}).`, 'ok', 3500);
       this.openJobBoard();
     }, 900);
   }
@@ -672,7 +723,7 @@ class Game {
       this.job = null;
       this.setState(STATE.IDLE);
       this.drawScreens();
-      this.hud.toast('Bay is clear. Grab the next job from the board.', '', 3000);
+      this.hud.toast(`Bay is clear. Grab the next job from the board${IS_TOUCH ? ' (📋)' : ' (J)'}.`, '', 3000);
     });
   }
 
@@ -870,8 +921,43 @@ class Game {
     canvas.addEventListener('pointerdown', (e) => {
       if (e.button !== 0) return;
       this.audio.init();
+      this.lastPointer = e.pointerType;
+      if (e.pointerType !== 'touch') { this.click(); return; }
+      // touch: act on release if it was a tap; holding still shows what's under the finger
+      this.mouse.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+      const tap = (this._tap = { id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now(), held: false, moved: false });
+      clearTimeout(this._holdTimer);
+      this._holdTimer = setTimeout(() => {
+        if (this._tap !== tap || tap.moved) return;
+        tap.held = true;
+        const tg = this._pick();
+        const html = tg && this._describe(tg);
+        if (html) {
+          this.hud.tooltip(html, tap.x - 140, tap.y - 150);
+          if (tg.kind === 'fastener' || tg.kind === 'part') this.vm.setHover(tg.ref.group);
+          navigator.vibrate?.(12);
+          clearTimeout(this._tipTimer);
+          this._tipTimer = setTimeout(() => { this.hud.tooltip(null); this.vm.setHover(null); }, 2600);
+        }
+      }, 480);
+    });
+    canvas.addEventListener('pointermove', (e) => {
+      const tap = this._tap;
+      if (tap && tap.id === e.pointerId && Math.hypot(e.clientX - tap.x, e.clientY - tap.y) > TAP_SLOP) tap.moved = true;
+    });
+    canvas.addEventListener('pointerup', (e) => {
+      const tap = this._tap;
+      if (!tap || tap.id !== e.pointerId) return;
+      this._tap = null;
+      clearTimeout(this._holdTimer);
+      // ignore if this finger dragged/held, or another finger is down (pinch)
+      const otherFinger = [...this.cam.touches.keys()].some((id) => id !== e.pointerId);
+      if (tap.moved || tap.held || otherFinger) return;
+      this.mouse.set((tap.x / innerWidth) * 2 - 1, -(tap.y / innerHeight) * 2 + 1);
+      this.hud.tooltip(null);
       this.click();
     });
+    canvas.addEventListener('pointercancel', () => { this._tap = null; clearTimeout(this._holdTimer); });
     addEventListener('keydown', (e) => {
       if (this.state === STATE.BOOT || !document.getElementById('title').classList.contains('hidden')) return;
       if (e.key === 'Escape') { if (this.hud.modalOpen && this.hud.modalClosable) this.hud.closeModal(); else this.hud.closePartCard(); return; }
@@ -1036,6 +1122,7 @@ class Game {
     if (this._hoverAcc > 1 / 30) {
       this._hoverAcc = 0;
       const titleHidden = document.getElementById('title').classList.contains('hidden');
+      if (this.lastPointer === 'touch') return; // touch has no hover; long-press shows the tooltip
       const tg = titleHidden && !this.tools.busy ? this._pick() : null;
       const canvas = this.renderer.domElement;
       if (tg) {

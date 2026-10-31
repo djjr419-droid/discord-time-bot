@@ -29,6 +29,21 @@ To run offline, `npm i three@0.160.0 gsap@3.12.5` and point the import map at `n
 | `L` / `F` | Lift up/down · work lamp |
 | `J` / `B` / `H` / `M` | Job board · shop terminal · manual · mute |
 
+### Phones & tablets
+
+Touch devices are detected automatically. They get the Low graphics preset, a compact HUD and touch gestures.
+Landscape works best, but portrait is supported.
+
+| Gesture | Action |
+|---|---|
+| Tap | Use the current tool on a fastener / part / equipment |
+| Drag | Look around |
+| Pinch | Focus zoom |
+| Hold | Inspect what's under your finger (tooltip + highlight) |
+| Bottom bar / chip strip | Tools / work positions (swipe to scroll) |
+| 📝 / 🩺 | Show the job card / diagnostics & removed parts |
+| ⬆ Lift · 💡 Lamp · ↩ Step back | Side buttons |
+
 ## Gameplay loop
 
 Job board → the vehicle drives in through the roll-up door → OBD scan at the laptop / multimeter / visual inspection →

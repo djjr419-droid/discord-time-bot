@@ -191,13 +191,87 @@ button.link { background: none; border: 0; color: var(--muted); text-decoration:
 .quality { color: var(--muted); font-size: 12.5px; display: flex; gap: 8px; align-items: center; }
 .quality select { background: #1b1e23; color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; }
 
-@media (max-width: 900px) {
-  #jobcard { width: calc(50vw - 18px); font-size: 12px; }
-  #sidepanel { width: calc(50vw - 18px); }
-  #partcard { right: 12px; top: auto; bottom: 150px; width: calc(100vw - 24px); }
-  .slot { width: 44px; height: 44px; font-size: 17px; }
-  .slot small { display: none; }
-  #views { max-width: 60vw; bottom: 84px; }
-  .stat { min-width: 0; }
-  .brand-sub, .stat.clock small { display: none; }
+/* --------------------------------------------------------------- touch & small screens */
+#viewport { touch-action: none; }
+body { -webkit-tap-highlight-color: transparent; -webkit-user-select: none; user-select: none; height: 100dvh; }
+.modal-box, .sp-body, #partcard, #views, #hotbar { touch-action: pan-x pan-y; -webkit-overflow-scrolling: touch; }
+.compact-only { display: none; }
+#hud.compact .compact-only:not(.hidden) { display: inline-flex; }
+body:not(.touch) .title-hints .touch, body.touch .title-hints .desk { display: none; }
+body.touch #crosshair { display: none; }
+body.touch .chip, body.touch button { min-height: 36px; }
+
+#hud.compact #topbar { top: calc(env(safe-area-inset-top) + 6px); left: calc(env(safe-area-inset-left) + 6px); right: calc(env(safe-area-inset-right) + 6px); gap: 5px; }
+#hud.compact .brand { padding: 4px; }
+#hud.compact .brand > div, #hud.compact .stat.clock small { display: none; }
+#hud.compact .logo { font-size: 13px; padding: 5px 6px; }
+#hud.compact .stat { min-width: 0; padding: 3px 8px; }
+#hud.compact .stat label { font-size: 8.5px; }
+#hud.compact .stat b { font-size: 15px; }
+#hud.compact .stars { font-size: 11px; letter-spacing: 0; }
+#hud.compact .chip { padding: 6px 9px; font-size: 12px; }
+
+/* job card & diagnostics become one-at-a-time overlays */
+#hud.compact #jobcard:not(.open), #hud.compact #sidepanel:not(.open) { display: none; }
+#hud.compact #jobcard, #hud.compact #sidepanel {
+  top: calc(env(safe-area-inset-top) + 58px); left: calc(env(safe-area-inset-left) + 6px); right: auto;
+  width: min(330px, calc(100vw - 12px - env(safe-area-inset-left) - env(safe-area-inset-right)));
+  max-height: calc(100dvh - 190px); overflow-y: auto; z-index: 5;
+}
+#hud.compact #sidepanel { left: auto; right: calc(env(safe-area-inset-right) + 6px); }
+
+/* work positions: one swipeable strip above the tool bar */
+#hud.compact #views {
+  left: calc(env(safe-area-inset-left) + 6px); right: calc(env(safe-area-inset-right) + 6px); max-width: none;
+  bottom: calc(env(safe-area-inset-bottom) + 70px); flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px;
+}
+#hud.compact #views::-webkit-scrollbar, #hud.compact #hotbar::-webkit-scrollbar { display: none; }
+#hud.compact #quick {
+  right: calc(env(safe-area-inset-right) + 6px); bottom: auto; top: 50%; transform: translateY(-50%);
+  flex-direction: column; align-items: flex-end;
+}
+#hud.compact #hotbar {
+  left: calc(env(safe-area-inset-left) + 6px); right: calc(env(safe-area-inset-right) + 6px); transform: none;
+  bottom: calc(env(safe-area-inset-bottom) + 6px); overflow-x: auto; scrollbar-width: none; padding: 4px; gap: 4px; border-radius: 12px;
+}
+#hud.compact .slot { width: 52px; height: 52px; flex: 0 0 auto; font-size: 20px; }
+#hud.compact .slot small { display: none; }
+#hud.compact .slot.active { transform: none; }
+#hud.compact #partcard {
+  left: calc(env(safe-area-inset-left) + 6px); right: calc(env(safe-area-inset-right) + 6px); width: auto;
+  top: auto; bottom: calc(env(safe-area-inset-bottom) + 112px); max-height: 52dvh; overflow-y: auto; z-index: 6;
+}
+#hud.compact #toasts { top: calc(env(safe-area-inset-top) + 58px); width: calc(100vw - 24px); }
+#hud.compact .toast { font-size: 12px; padding: 7px 10px; }
+#hud.compact #tooltip { max-width: 260px; }
+.modal-box { max-height: calc(100dvh - 24px); }
+
+@media (max-width: 600px), (max-height: 480px) {
+  #modal { align-items: flex-end; }
+  .modal-box { width: 100vw; border-radius: 14px 14px 0 0; padding: 16px 14px calc(16px + env(safe-area-inset-bottom)); max-height: 92dvh; }
+  .modal-box h2 { font-size: 21px; }
+  .jobs, .items { grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr)); }
+  .invoice { font-size: 12.5px; }
+  .invoice-head { flex-direction: column; align-items: flex-start; gap: 6px; }
+  .rpm { font-size: 34px; min-width: 100px; }
+}
+@media (max-height: 480px) {
+  /* landscape phones: give the 3D view as much height as possible */
+  #hud.compact .slot { width: 44px; height: 44px; font-size: 17px; }
+  #hud.compact #views { bottom: calc(env(safe-area-inset-bottom) + 58px); }
+  #hud.compact #views .chip { padding: 4px 8px; min-height: 30px; }
+  #hud.compact #partcard { bottom: calc(env(safe-area-inset-bottom) + 96px); max-height: 60dvh; }
+  #hud.compact #jobcard, #hud.compact #sidepanel { max-height: calc(100dvh - 150px); }
+  .title-inner { gap: 10px; }
+  .title-logo { font-size: 38px; }
+}
+@media (max-width: 600px) {
+  .help-grid { grid-template-columns: 1fr; }
+  #hud.compact .lbl { display: none; }
+  #hud.compact #topbar { gap: 4px; }
+  #hud.compact #topbar .chip { padding: 6px 8px; min-width: 34px; justify-content: center; }
+  #hud.compact .stat { padding: 3px 6px; }
+}
+@media (max-width: 420px) {
+  #hud.compact .stat:nth-of-type(3) { display: none; } /* reputation stars → visible in the shop */
 }

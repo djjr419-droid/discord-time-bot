@@ -35,12 +35,18 @@ export class ArmRig {
     this.skinMat = new THREE.MeshPhysicalMaterial({ color: 0xc58b6b, roughness: 0.55, sheen: 0.35, sheenColor: new THREE.Color(0xff9a7a), sheenRoughness: 0.6 });
     this.sleeveMat = new THREE.MeshStandardMaterial({ color: 0x24324a, roughness: 0.92 });
     this.grease = 0;
+    this.spread = 1;
     this.arms = {
       R: this._buildArm(1),
       L: this._buildArm(-1),
     };
     this.time = 0;
     this.bob = 0;
+  }
+
+  /** Pulls the resting hands inward on narrow / portrait screens so they stay in frame. */
+  setAspect(aspect) {
+    this.spread = THREE.MathUtils.clamp(aspect / 1.6, 0.5, 1);
   }
 
   _buildArm(side) {
@@ -134,7 +140,7 @@ export class ArmRig {
 
   _restGoal(arm) {
     const s = arm.side;
-    arm.goalPos.set(s * 0.21, -0.27, -0.4).add(arm.restOffset);
+    arm.goalPos.set(s * 0.21 * this.spread, -0.27, -0.4).add(arm.restOffset);
     // fingers forward/up slightly, back of hand up & outward
     const yAxis = _a.set(-s * 0.15, 0.25, -1).normalize();
     const zAxis = _b.set(s * 0.25, 1, 0.2).normalize();

@@ -2,7 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="theme-color" content="#0b0c0e" />
   <title>Torque & Tread — Mechanic Simulator</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -37,8 +41,10 @@
       <div class="stat"><label>Reputation</label><span id="rep" class="stars"></span></div>
       <div class="stat clock"><label>Labor clock</label><b id="clock">--:--</b><small id="book"></small></div>
       <div class="spacer"></div>
-      <button class="chip" id="btn-jobs" title="Job board (J)">📋 Jobs</button>
-      <button class="chip" id="btn-shop" title="Shop terminal (B)">🛒 Shop</button>
+      <button class="chip compact-only hidden" id="btn-card" title="Job card">📝</button>
+      <button class="chip compact-only hidden" id="btn-panel" title="Diagnostics & parts">🩺</button>
+      <button class="chip" id="btn-jobs" title="Job board (J)">📋<span class="lbl"> Jobs</span></button>
+      <button class="chip" id="btn-shop" title="Shop terminal (B)">🛒<span class="lbl"> Shop</span></button>
       <button class="chip" id="btn-help" title="Controls (H)">❔</button>
       <button class="chip" id="btn-mute" title="Mute (M)">🔊</button>
     </header>
@@ -93,7 +99,8 @@
       <div id="loading"><div id="loading-bar"></div></div>
       <button id="btn-start" class="primary big" disabled>Loading…</button>
       <div class="title-hints">
-        <span>🖱 Click parts &amp; fasteners</span><span>🖱 Right-drag to look</span><span>1–9 tools</span><span>Q / E views</span>
+        <span class="desk">🖱 Click parts &amp; fasteners</span><span class="desk">🖱 Right-drag to look</span><span class="desk">1–9 tools</span><span class="desk">Q / E views</span>
+        <span class="touch">👆 Tap parts &amp; fasteners</span><span class="touch">☝ Drag to look</span><span class="touch">🤏 Pinch to zoom</span><span class="touch">✋ Hold to inspect</span>
       </div>
       <label class="quality">Graphics
         <select id="quality">
