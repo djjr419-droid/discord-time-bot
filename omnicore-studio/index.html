@@ -1,0 +1,2981 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<meta name="theme-color" content="#09090b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="description" content="OmniCore Studio: an offline, in-browser AI assistant (WebLLM + WebGPU) with a live HTML/JS sandbox and a real Python 3 runtime (Pyodide). No API keys.">
+<title>OmniCore Studio</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%2322d3ee'/%3E%3Cstop offset='1' stop-color='%23a78bfa'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='14' fill='%2309090b'/%3E%3Ccircle cx='32' cy='32' r='17' fill='none' stroke='url(%23g)' stroke-width='6'/%3E%3Ccircle cx='32' cy='32' r='5' fill='url(%23g)'/%3E%3C/svg%3E">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  if (window.tailwind) tailwind.config = {
+    darkMode: 'class',
+    theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'], mono: ['JetBrains Mono', 'ui-monospace', 'monospace'] } } }
+  };
+</script>
+
+<!-- Icons, Markdown, Sanitizer, Highlighting, Code editor -->
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/xml/xml.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/css/css.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/htmlmixed/htmlmixed.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closetag.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/comment/comment.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/selection/active-line.min.js"></script>
+
+<style>
+  :root {
+    --app-h: 100dvh;
+    --bg: #09090b; --panel: #0f0f12; --panel-2: #141418; --line: #26262c; --line-2: #33333b;
+    --text: #e4e4e7; --muted: #a1a1aa; --dim: #71717a;
+    --accent: #22d3ee; --accent-2: #a78bfa; --ok: #34d399; --warn: #fbbf24; --err: #f87171;
+  }
+  * { -webkit-tap-highlight-color: transparent; }
+  /* Component classes set display; keep Tailwind's `hidden` winning on them without breaking responsive `hidden md:flex`. */
+  .btn.hidden, .icon-btn.hidden, .chip.hidden, .cb-btn.hidden, .tab.hidden, .badge.hidden, .term-out.hidden { display: none; }
+  html, body { height: 100%; margin: 0; background: var(--bg); color: var(--text); font-family: Inter, system-ui, sans-serif; overscroll-behavior: none; }
+  #app { height: var(--app-h); display: flex; flex-direction: column; overflow: hidden; padding-top: env(safe-area-inset-top); }
+  ::selection { background: rgba(34, 211, 238, .28); }
+  .scroll-thin { scrollbar-width: thin; scrollbar-color: #3f3f46 transparent; }
+  .scroll-thin::-webkit-scrollbar { width: 8px; height: 8px; }
+  .scroll-thin::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 8px; border: 2px solid transparent; background-clip: content-box; }
+  svg.lucide { width: 1em; height: 1em; flex-shrink: 0; }
+
+  /* Buttons & controls */
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: .4rem; height: 32px; padding: 0 .7rem; border-radius: 8px; font-size: 13px; font-weight: 500; color: var(--text); background: #1c1c21; border: 1px solid var(--line-2); cursor: pointer; white-space: nowrap; transition: background .15s, border-color .15s, opacity .15s; user-select: none; }
+  .btn:hover { background: #26262d; border-color: #45454f; }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .btn-primary { background: linear-gradient(135deg, #0891b2, #7c3aed); border-color: transparent; color: #fff; }
+  .btn-primary:hover { background: linear-gradient(135deg, #06b6d4, #8b5cf6); border-color: transparent; }
+  .btn-danger { color: #fecaca; border-color: #7f1d1d; background: #2a1215; }
+  .btn-danger:hover { background: #3b1519; border-color: #991b1b; }
+  .btn-ghost { background: transparent; border-color: transparent; }
+  .btn-ghost:hover { background: #1f1f25; border-color: transparent; }
+  .icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 8px; color: var(--muted); background: transparent; border: 1px solid transparent; cursor: pointer; font-size: 16px; transition: background .15s, color .15s; flex-shrink: 0; }
+  .icon-btn:hover { background: #1f1f25; color: var(--text); }
+  .icon-btn.active { color: var(--accent); background: rgba(34, 211, 238, .1); }
+  .icon-btn:disabled { opacity: .4; cursor: not-allowed; }
+  .chip { display: inline-flex; align-items: center; gap: .35rem; height: 26px; padding: 0 .6rem; border-radius: 999px; font-size: 12px; color: var(--muted); background: #18181c; border: 1px solid var(--line-2); cursor: pointer; white-space: nowrap; user-select: none; }
+  .chip:hover { color: var(--text); border-color: #4b4b55; }
+  .chip.on { color: #67e8f9; border-color: rgba(34, 211, 238, .5); background: rgba(34, 211, 238, .08); }
+  .field { width: 100%; background: #111115; border: 1px solid var(--line-2); border-radius: 8px; color: var(--text); padding: .5rem .65rem; font-size: 14px; outline: none; }
+  .field:focus { border-color: #0891b2; box-shadow: 0 0 0 3px rgba(8, 145, 178, .2); }
+  select.field { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23a1a1aa' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right .6rem center; padding-right: 1.8rem; }
+  input[type=range] { accent-color: #22d3ee; width: 100%; }
+  input[type=checkbox].toggle { appearance: none; width: 36px; height: 20px; border-radius: 999px; background: #3f3f46; position: relative; cursor: pointer; transition: background .2s; flex-shrink: 0; }
+  input[type=checkbox].toggle::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform .2s; }
+  input[type=checkbox].toggle:checked { background: #0891b2; }
+  input[type=checkbox].toggle:checked::after { transform: translateX(16px); }
+  kbd { font-family: 'JetBrains Mono', monospace; font-size: 11px; padding: 1px 6px; border-radius: 5px; background: #1f1f25; border: 1px solid var(--line-2); border-bottom-width: 2px; color: var(--text); }
+
+  /* Layout */
+  #workspace { flex: 1; display: flex; min-height: 0; min-width: 0; position: relative; overflow: hidden; }
+  .panel { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--panel); position: relative; overflow: hidden; }
+  .panel-head { height: 44px; display: flex; align-items: center; gap: .25rem; padding: 0 .5rem; border-bottom: 1px solid var(--line); background: var(--panel); flex-shrink: 0; }
+  .resizer { width: 5px; cursor: col-resize; background: var(--line); flex-shrink: 0; position: relative; z-index: 5; transition: background .15s; touch-action: none; }
+  .resizer:hover, .resizer.dragging { background: #0891b2; }
+  .hresizer { height: 5px; cursor: row-resize; background: var(--line); flex-shrink: 0; touch-action: none; transition: background .15s; }
+  .hresizer:hover, .hresizer.dragging { background: #0891b2; }
+  body.resizing iframe { pointer-events: none; }
+  body.resizing { user-select: none; }
+  #mobileNav { display: none; }
+  @media (max-width: 899px) {
+    .panel { display: none !important; flex: 1 1 auto !important; width: 100% !important; }
+    .panel.m-active { display: flex !important; }
+    .resizer { display: none; }
+    #mobileNav { display: flex; }
+    body.kb-open #mobileNav { display: none; }
+    .desk-only { display: none !important; }
+  }
+  @media (min-width: 900px) { .mob-only { display: none !important; } }
+
+  .tab { display: inline-flex; align-items: center; gap: .4rem; height: 30px; padding: 0 .65rem; border-radius: 7px; font-size: 12.5px; font-weight: 500; color: var(--dim); cursor: pointer; white-space: nowrap; border: 1px solid transparent; user-select: none; font-family: 'JetBrains Mono', monospace; }
+  .tab:hover { color: var(--text); background: #18181c; }
+  .tab.active { color: var(--text); background: #1c1c22; border-color: var(--line-2); }
+  .tab .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .badge { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; font-size: 10.5px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; background: #7f1d1d; color: #fecaca; font-family: Inter, sans-serif; }
+
+  /* Progress */
+  #progressWrap { display: none; border-bottom: 1px solid var(--line); background: #0c0c0f; padding: .5rem .75rem; }
+  #progressWrap.show { display: block; }
+  .pbar { height: 6px; border-radius: 99px; background: #1f1f25; overflow: hidden; }
+  .pbar > div { height: 100%; width: 0%; border-radius: 99px; background: linear-gradient(90deg, #06b6d4, #8b5cf6, #06b6d4); background-size: 200% 100%; animation: shimmer 2s linear infinite; transition: width .3s ease; }
+  @keyframes shimmer { to { background-position: -200% 0; } }
+
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #52525b; box-shadow: 0 0 0 3px rgba(82, 82, 91, .2); flex-shrink: 0; }
+  .status-dot.ready { background: var(--ok); box-shadow: 0 0 0 3px rgba(52, 211, 153, .18); }
+  .status-dot.loading { background: var(--warn); box-shadow: 0 0 0 3px rgba(251, 191, 36, .18); animation: pulse 1.2s infinite; }
+  .status-dot.demo { background: var(--accent-2); box-shadow: 0 0 0 3px rgba(167, 139, 250, .2); }
+  .status-dot.error { background: var(--err); box-shadow: 0 0 0 3px rgba(248, 113, 113, .2); }
+  @keyframes pulse { 50% { opacity: .4; } }
+
+  /* Chat */
+  #messages { flex: 1; overflow-y: auto; padding: 1rem .9rem 1.5rem; scroll-behavior: auto; }
+  .msg { display: flex; gap: .65rem; margin-bottom: 1.1rem; animation: fadeUp .2s ease; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(4px); } }
+  .msg .avatar { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 15px; margin-top: 2px; }
+  .msg-user .avatar { background: #27272a; color: #d4d4d8; }
+  .msg-ai .avatar { background: linear-gradient(135deg, rgba(8, 145, 178, .35), rgba(124, 58, 237, .35)); color: #a5f3fc; }
+  .msg .bubble { min-width: 0; flex: 1; }
+  .msg-user .md { background: #18181c; border: 1px solid var(--line); border-radius: 12px; padding: .55rem .8rem; display: inline-block; max-width: 100%; }
+  .msg .meta { display: flex; align-items: center; gap: .25rem; margin-top: .3rem; font-size: 11px; color: var(--dim); min-height: 24px; flex-wrap: wrap; }
+  .msg .meta .icon-btn { width: 26px; height: 26px; font-size: 13px; opacity: 0; }
+  .msg:hover .meta .icon-btn, .msg:focus-within .meta .icon-btn { opacity: 1; }
+  @media (hover: none) { .msg .meta .icon-btn { opacity: .8; } }
+  .typing::after { content: '▍'; color: var(--accent); animation: blink 1s steps(1) infinite; margin-left: 1px; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .md { font-size: 14.5px; line-height: 1.65; word-wrap: break-word; overflow-wrap: anywhere; }
+  .md > *:first-child { margin-top: 0; }
+  .md > *:last-child { margin-bottom: 0; }
+  .md p { margin: .5em 0; }
+  .md ul, .md ol { margin: .5em 0; padding-left: 1.4em; }
+  .md ul { list-style: disc; } .md ol { list-style: decimal; }
+  .md li { margin: .2em 0; }
+  .md h1, .md h2, .md h3, .md h4 { font-weight: 650; margin: .9em 0 .4em; line-height: 1.3; }
+  .md h1 { font-size: 1.3em; } .md h2 { font-size: 1.18em; } .md h3 { font-size: 1.06em; }
+  .md a { color: #67e8f9; text-decoration: underline; text-underline-offset: 2px; }
+  .md blockquote { border-left: 3px solid #3f3f46; padding-left: .8em; color: var(--muted); margin: .6em 0; }
+  .md code:not(pre code) { font-family: 'JetBrains Mono', monospace; font-size: .86em; background: #1f1f25; border: 1px solid #2c2c33; padding: .08em .35em; border-radius: 5px; color: #f0abfc; }
+  .md table { border-collapse: collapse; margin: .6em 0; font-size: .92em; display: block; overflow-x: auto; }
+  .md th, .md td { border: 1px solid var(--line-2); padding: .35em .6em; text-align: left; }
+  .md th { background: #18181c; }
+  .md hr { border: 0; border-top: 1px solid var(--line-2); margin: 1em 0; }
+  .md details.think { border: 1px dashed #3f3f46; border-radius: 10px; padding: .4em .8em; margin: .5em 0; color: var(--muted); font-size: .92em; }
+  .md details.think summary { cursor: pointer; color: #c4b5fd; font-weight: 500; }
+
+  .cb { margin: .7em 0; border: 1px solid var(--line-2); border-radius: 10px; overflow: hidden; background: #0d1117; }
+  .cb-head { display: flex; align-items: center; gap: .25rem; padding: .25rem .35rem .25rem .7rem; background: #16161b; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .cb-lang { font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--muted); margin-right: auto; text-transform: lowercase; }
+  .cb-btn { display: inline-flex; align-items: center; gap: .3rem; height: 26px; padding: 0 .55rem; font-size: 12px; border-radius: 6px; color: var(--muted); cursor: pointer; border: 1px solid transparent; background: transparent; white-space: nowrap; }
+  .cb-btn:hover { color: var(--text); background: #23232a; }
+  .cb-btn.run { color: #67e8f9; border-color: rgba(34, 211, 238, .35); background: rgba(34, 211, 238, .07); }
+  .cb-btn.run:hover { background: rgba(34, 211, 238, .16); }
+  .cb pre { margin: 0; padding: .75rem .85rem; overflow-x: auto; max-height: 460px; }
+  .cb pre code, .cb pre code.hljs { font-family: 'JetBrains Mono', monospace; font-size: 12.5px; line-height: 1.55; background: transparent; padding: 0; white-space: pre; }
+
+  #input { resize: none; max-height: 200px; min-height: 44px; line-height: 1.5; }
+  .composer-box { background: #141418; border: 1px solid var(--line-2); border-radius: 14px; transition: border-color .15s, box-shadow .15s; }
+  .composer-box:focus-within { border-color: #0e7490; box-shadow: 0 0 0 3px rgba(14, 116, 144, .18); }
+
+  .suggest { text-align: left; padding: .7rem .8rem; border-radius: 12px; border: 1px solid var(--line-2); background: #121216; cursor: pointer; transition: border-color .15s, background .15s; font-size: 13px; color: var(--muted); }
+  .suggest:hover { border-color: #0e7490; background: #14181c; color: var(--text); }
+  .suggest b { display: block; color: var(--text); font-weight: 600; margin-bottom: 2px; font-size: 13.5px; }
+
+  /* Conversations drawer */
+  #convDrawer { position: absolute; inset: 44px 0 0 0; background: rgba(9, 9, 11, .6); z-index: 20; display: none; backdrop-filter: blur(2px); }
+  #convDrawer.open { display: block; }
+  #convDrawer .sheet { width: min(320px, 88%); height: 100%; background: #0e0e11; border-right: 1px solid var(--line); display: flex; flex-direction: column; animation: slideIn .18s ease; }
+  @keyframes slideIn { from { transform: translateX(-14px); opacity: 0; } }
+  .conv-item { display: flex; align-items: center; gap: .5rem; padding: .55rem .6rem; border-radius: 9px; cursor: pointer; color: var(--muted); font-size: 13px; }
+  .conv-item:hover { background: #18181c; color: var(--text); }
+  .conv-item.active { background: #1a1d22; color: var(--text); box-shadow: inset 2px 0 0 var(--accent); }
+  .conv-item .icon-btn { width: 26px; height: 26px; font-size: 13px; opacity: 0; }
+  .conv-item:hover .icon-btn, .conv-item.active .icon-btn { opacity: 1; }
+  @media (hover: none) { .conv-item .icon-btn { opacity: .8; } }
+
+  /* Editor */
+  #editorHost { flex: 1; min-height: 0; position: relative; }
+  #editorHost .CodeMirror { height: 100%; font-family: 'JetBrains Mono', monospace; font-size: var(--editor-font, 14px); line-height: 1.6; }
+  .fallback-editor { width: 100%; height: 100%; background: #0d0d10; color: #e4e4e7; border: 0; outline: none; resize: none; padding: 12px 14px; font-family: 'JetBrains Mono', monospace; font-size: var(--editor-font, 14px); line-height: 1.6; tab-size: 2; }
+  .cm-s-omni.CodeMirror { background: #0d0d10; color: #d4d4d8; }
+  .cm-s-omni .CodeMirror-gutters { background: #0d0d10; border-right: 1px solid #1c1c22; }
+  .cm-s-omni .CodeMirror-linenumber { color: #4b4b55; padding: 0 10px 0 6px; }
+  .cm-s-omni .CodeMirror-cursor { border-left: 2px solid #22d3ee; }
+  .cm-s-omni .CodeMirror-activeline-background { background: rgba(255, 255, 255, .035); }
+  .cm-s-omni .CodeMirror-activeline-gutter .CodeMirror-linenumber { color: #a1a1aa; }
+  .cm-s-omni .CodeMirror-selected, .cm-s-omni.CodeMirror-focused .CodeMirror-selected { background: rgba(34, 211, 238, .18) !important; }
+  .cm-s-omni .CodeMirror-line::selection, .cm-s-omni .CodeMirror-line > span::selection, .cm-s-omni .CodeMirror-line > span > span::selection { background: rgba(34, 211, 238, .25); }
+  .cm-s-omni .CodeMirror-matchingbracket { color: #fde68a !important; background: rgba(253, 230, 138, .12); outline: 1px solid rgba(253, 230, 138, .3); }
+  .cm-s-omni span.cm-keyword { color: #c084fc; }
+  .cm-s-omni span.cm-def { color: #67e8f9; }
+  .cm-s-omni span.cm-variable { color: #e4e4e7; }
+  .cm-s-omni span.cm-variable-2 { color: #93c5fd; }
+  .cm-s-omni span.cm-variable-3, .cm-s-omni span.cm-type { color: #5eead4; }
+  .cm-s-omni span.cm-property { color: #7dd3fc; }
+  .cm-s-omni span.cm-operator { color: #f472b6; }
+  .cm-s-omni span.cm-number { color: #fdba74; }
+  .cm-s-omni span.cm-string, .cm-s-omni span.cm-string-2 { color: #86efac; }
+  .cm-s-omni span.cm-comment { color: #6b7280; font-style: italic; }
+  .cm-s-omni span.cm-atom { color: #fca5a5; }
+  .cm-s-omni span.cm-builtin { color: #fcd34d; }
+  .cm-s-omni span.cm-meta { color: #f9a8d4; }
+  .cm-s-omni span.cm-tag { color: #f472b6; }
+  .cm-s-omni span.cm-attribute { color: #fcd34d; }
+  .cm-s-omni span.cm-bracket { color: #a1a1aa; }
+  .cm-s-omni span.cm-qualifier { color: #fcd34d; }
+  .cm-s-omni span.cm-error { color: #fecaca; background: rgba(239, 68, 68, .25); }
+
+  #keybar { display: none; gap: 4px; padding: 5px 6px; background: #121216; border-top: 1px solid var(--line); overflow-x: auto; flex-shrink: 0; }
+  #keybar.show { display: flex; }
+  #keybar button { min-width: 38px; height: 36px; padding: 0 10px; border-radius: 7px; background: #1f1f25; border: 1px solid var(--line-2); color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 14px; flex-shrink: 0; }
+  #keybar button:active { background: #0e7490; }
+
+  /* Preview & terminal */
+  #previewStage { flex: 1; min-height: 0; background: repeating-conic-gradient(#121215 0% 25%, #0f0f12 0% 50%) 50% / 22px 22px; display: flex; justify-content: center; overflow: auto; }
+  #previewFrameBox { width: 100%; height: 100%; background: #fff; transition: width .25s ease; box-shadow: 0 0 0 1px var(--line-2); }
+  #previewFrameBox.device { margin: 12px auto; height: calc(100% - 24px); border-radius: 14px; overflow: hidden; box-shadow: 0 0 0 6px #1f1f25, 0 10px 40px rgba(0, 0, 0, .5); }
+  #previewFrame { width: 100%; height: 100%; border: 0; background: #fff; display: block; }
+  #terminal { display: flex; flex-direction: column; min-height: 0; background: #0b0b0e; }
+  #terminal.collapsed { flex: 0 0 40px !important; }
+  #terminal.collapsed .term-body { display: none; }
+  #terminal.max { flex: 1 1 auto !important; }
+  .term-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .term-out { flex: 1; overflow: auto; padding: .6rem .8rem; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
+  .tl { margin: 0; }
+  .tl.stdout { color: #e4e4e7; }
+  .tl.stderr, .tl.error { color: #fca5a5; }
+  .tl.sys { color: #7dd3fc; opacity: .85; }
+  .tl.prompt { color: #6ee7b7; }
+  .tl.warn { color: #fde68a; }
+  .tl.info { color: #93c5fd; }
+  .tl.debug { color: #a1a1aa; }
+  .tl.log { color: #e4e4e7; border-bottom: 1px solid #16161a; padding: 2px 0; }
+  .tl-img { margin: .5rem 0; display: inline-block; background: #18181b; padding: 6px; border-radius: 10px; border: 1px solid var(--line-2); max-width: 100%; }
+  .tl-img img { max-width: 100%; height: auto; border-radius: 6px; display: block; }
+  .term-fix { display: inline-flex; margin: .35rem 0 .6rem; }
+
+  /* Menus, modals, toasts */
+  .menu { position: absolute; z-index: 60; min-width: 220px; background: #141418; border: 1px solid var(--line-2); border-radius: 12px; padding: .35rem; box-shadow: 0 16px 48px rgba(0, 0, 0, .55); display: none; }
+  .menu.open { display: block; animation: fadeUp .12s ease; }
+  .menu button { width: 100%; display: flex; align-items: center; gap: .6rem; padding: .5rem .6rem; border-radius: 8px; font-size: 13px; color: var(--text); text-align: left; background: transparent; border: 0; cursor: pointer; }
+  .menu button:hover { background: #1f1f26; }
+  .menu button small { color: var(--dim); margin-left: auto; font-size: 11px; }
+  .menu .sep { height: 1px; background: var(--line); margin: .3rem .2rem; }
+  .menu .label { font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--dim); padding: .4rem .6rem .2rem; }
+  .modal { position: fixed; inset: 0; z-index: 80; background: rgba(0, 0, 0, .6); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; padding: 16px; }
+  .modal.open { display: flex; }
+  .modal .card { width: min(640px, 100%); max-height: min(88dvh, 860px); background: #101014; border: 1px solid var(--line-2); border-radius: 16px; display: flex; flex-direction: column; box-shadow: 0 30px 80px rgba(0, 0, 0, .6); animation: fadeUp .18s ease; }
+  .modal .card-head { display: flex; align-items: center; gap: .5rem; padding: .8rem 1rem; border-bottom: 1px solid var(--line); }
+  .modal .card-body { padding: 1rem; overflow-y: auto; }
+  .set-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .6rem 0; border-bottom: 1px solid #1a1a1f; }
+  .set-row:last-child { border-bottom: 0; }
+  .set-row .lbl { font-size: 13.5px; }
+  .set-row .hint { font-size: 12px; color: var(--dim); margin-top: 2px; }
+  .set-section { font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--accent); margin: 1.1rem 0 .2rem; font-weight: 600; }
+  .set-section:first-child { margin-top: 0; }
+  #toasts { position: fixed; z-index: 100; left: 50%; transform: translateX(-50%); bottom: calc(76px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; width: min(460px, calc(100% - 32px)); }
+  @media (min-width: 900px) { #toasts { bottom: 24px; left: auto; right: 24px; transform: none; align-items: flex-end; } }
+  .toast { pointer-events: auto; display: flex; align-items: center; gap: .6rem; padding: .6rem .8rem; border-radius: 12px; background: #18181d; border: 1px solid var(--line-2); box-shadow: 0 12px 36px rgba(0, 0, 0, .5); font-size: 13px; animation: fadeUp .2s ease; max-width: 100%; }
+  .toast.ok { border-color: rgba(52, 211, 153, .4); }
+  .toast.err { border-color: rgba(248, 113, 113, .5); }
+  .toast.warn { border-color: rgba(251, 191, 36, .45); }
+
+  #mobileNav { border-top: 1px solid var(--line); background: #0c0c0f; padding-bottom: env(safe-area-inset-bottom); flex-shrink: 0; }
+  #mobileNav button { flex: 1; height: 58px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 11px; font-weight: 500; color: var(--dim); background: transparent; border: 0; cursor: pointer; position: relative; }
+  #mobileNav button svg { font-size: 20px; }
+  #mobileNav button.active { color: #67e8f9; }
+  #mobileNav button.active::before { content: ''; position: absolute; top: 0; left: 30%; right: 30%; height: 2px; border-radius: 0 0 3px 3px; background: var(--accent); }
+  #mobileNav .nav-dot { position: absolute; top: 9px; left: calc(50% + 8px); width: 7px; height: 7px; border-radius: 50%; background: var(--accent); display: none; }
+  #mobileNav .nav-dot.show { display: block; }
+  .grad-text { background: linear-gradient(90deg, #67e8f9, #c4b5fd); -webkit-background-clip: text; background-clip: text; color: transparent; }
+</style>
+</head>
+<body>
+<noscript><div style="padding:24px;font-family:sans-serif">OmniCore Studio requires JavaScript.</div></noscript>
+
+<div id="app">
+  <!-- ================= HEADER ================= -->
+  <header class="h-12 flex items-center gap-2 px-2 sm:px-3 border-b border-zinc-800/80 bg-[#0b0b0e] flex-shrink-0">
+    <div class="flex items-center gap-2 mr-1 select-none">
+      <div class="w-7 h-7 rounded-lg flex items-center justify-center" style="background:linear-gradient(135deg,#0891b2,#7c3aed)">
+        <i data-lucide="atom" class="text-white" style="font-size:16px"></i>
+      </div>
+      <div class="leading-tight">
+        <div class="text-[14px] font-semibold tracking-tight">OmniCore <span class="grad-text">Studio</span></div>
+        <div class="text-[10px] text-zinc-500 hidden sm:block">Local AI · Web Sandbox · Python</div>
+      </div>
+    </div>
+
+    <button id="statusPill" class="chip ml-1 !h-8 !px-3 max-w-[46vw] sm:max-w-none" title="AI engine status">
+      <span id="statusDot" class="status-dot"></span>
+      <span id="statusText" class="truncate">No model loaded</span>
+    </button>
+
+    <div class="flex-1"></div>
+
+    <div class="hidden md:flex items-center gap-2">
+      <span id="cacheBadge" class="chip !cursor-default" title="Browser storage used by cached model weights and app data"><i data-lucide="hard-drive"></i><span id="cacheBadgeText">—</span></span>
+      <select id="modelSelect" class="field !h-8 !py-0 !text-[13px] !w-[260px]" title="Choose a local model"></select>
+      <button id="loadBtn" class="btn btn-primary"><i data-lucide="download"></i><span>Load</span></button>
+    </div>
+    <button id="btnHelp" class="icon-btn" title="Help & shortcuts (?)"><i data-lucide="circle-help"></i></button>
+    <button id="btnSettings" class="icon-btn" title="Settings"><i data-lucide="settings-2"></i></button>
+  </header>
+
+  <!-- ================= MODEL PROGRESS ================= -->
+  <div id="progressWrap">
+    <div class="flex items-center gap-3 text-[12px] mb-1.5">
+      <i data-lucide="cpu" class="text-cyan-400"></i>
+      <span id="progressTitle" class="font-medium text-zinc-200 truncate">Preparing model…</span>
+      <span id="progressCacheTag" class="chip !h-5 !text-[10.5px] !cursor-default hidden"></span>
+      <span class="flex-1"></span>
+      <span id="progressPct" class="font-mono text-cyan-300">0%</span>
+      <button id="progressCancel" class="icon-btn !w-6 !h-6 !text-[13px]" title="Cancel loading"><i data-lucide="x"></i></button>
+    </div>
+    <div class="pbar"><div id="progressBar"></div></div>
+    <div id="progressText" class="text-[11px] text-zinc-500 mt-1.5 font-mono truncate">…</div>
+  </div>
+
+  <!-- ================= WORKSPACE ================= -->
+  <main id="workspace">
+
+    <!-- ---------- CHAT PANEL ---------- -->
+    <section id="panel-chat" class="panel m-active" data-panel="chat">
+      <div class="panel-head">
+        <button id="btnConvs" class="icon-btn" title="Conversations"><i data-lucide="panel-left"></i></button>
+        <div id="chatTitle" class="text-[13px] font-medium truncate flex-1 px-1 cursor-text" title="Click to rename">New chat</div>
+        <button id="btnNewChat" class="icon-btn" title="New chat (Ctrl+Alt+N)"><i data-lucide="square-pen"></i></button>
+        <div class="relative">
+          <button class="icon-btn" data-menu="chatMenu" title="Chat options"><i data-lucide="ellipsis-vertical"></i></button>
+          <div id="chatMenu" class="menu right-0 top-9">
+            <button data-chat-act="export-md"><i data-lucide="file-text"></i>Export as Markdown</button>
+            <button data-chat-act="export-json"><i data-lucide="file-json"></i>Export as JSON</button>
+            <button data-chat-act="import"><i data-lucide="upload"></i>Import chat (.json)</button>
+            <div class="sep"></div>
+            <button data-chat-act="clear"><i data-lucide="eraser"></i>Clear messages</button>
+            <button data-chat-act="delete"><i data-lucide="trash-2"></i>Delete conversation</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="convDrawer">
+        <div class="sheet">
+          <div class="p-2 flex gap-2 border-b border-zinc-800">
+            <input id="convSearch" class="field !h-9 !text-[13px]" placeholder="Search conversations…" autocomplete="off">
+            <button id="btnNewChat2" class="btn !h-9" title="New chat"><i data-lucide="plus"></i></button>
+          </div>
+          <div id="convList" class="flex-1 overflow-y-auto p-2 scroll-thin"></div>
+          <div class="p-2 border-t border-zinc-800 text-[11px] text-zinc-500 flex items-center gap-2"><i data-lucide="database"></i><span id="convCount">0 conversations</span> · saved locally</div>
+        </div>
+      </div>
+
+      <div id="messages" class="scroll-thin"></div>
+
+      <div id="composer" class="p-2 sm:p-3 pt-0 sm:pt-0 flex-shrink-0">
+        <div id="editChip" class="hidden mb-2 text-[12px] text-amber-300 flex items-center gap-2"><i data-lucide="pencil"></i>Editing a previous message — sending will replace it and later replies. <button id="btnCancelEdit" class="underline text-zinc-400">Cancel</button></div>
+        <div class="composer-box">
+          <textarea id="input" rows="1" class="w-full bg-transparent outline-none px-3.5 pt-3 pb-1 text-[14.5px] placeholder-zinc-500 scroll-thin" placeholder="Ask anything, or describe an app / script to build…" enterkeyhint="send"></textarea>
+          <div class="flex items-center gap-1.5 px-2 pb-2">
+            <button id="chipContext" class="chip" title="Attach the current editor file to your message as context"><i data-lucide="paperclip"></i><span>Code context</span></button>
+            <button id="chipMode" class="chip" title="Switch between local AI and simulated demo mode"><i data-lucide="zap"></i><span id="chipModeText">Local AI</span></button>
+            <span id="tokenCount" class="text-[11px] text-zinc-600 ml-1 hidden sm:inline"></span>
+            <span class="flex-1"></span>
+            <button id="btnMic" class="icon-btn" title="Voice input (uses your browser's speech service)"><i data-lucide="mic"></i></button>
+            <button id="btnStop" class="btn btn-danger !h-8 hidden" title="Stop generating (Esc)"><i data-lucide="square"></i><span class="hidden sm:inline">Stop</span></button>
+            <button id="btnSend" class="btn btn-primary !h-8 !w-9 !p-0" title="Send (Enter)"><i data-lucide="arrow-up"></i></button>
+          </div>
+        </div>
+        <div class="text-[10.5px] text-zinc-600 text-center mt-1.5 hidden sm:block">Runs entirely on your device. Models can make mistakes — review generated code.</div>
+      </div>
+    </section>
+
+    <div class="resizer" data-resize="0" title="Drag to resize · double-click to reset"></div>
+
+    <!-- ---------- CODE PANEL ---------- -->
+    <section id="panel-code" class="panel" data-panel="code">
+      <div class="panel-head !gap-1 overflow-x-auto scroll-thin">
+        <div id="fileTabs" class="flex items-center gap-1 flex-shrink-0">
+          <button class="tab" data-file="html"><span class="dot" style="background:#f97316"></span>index.html</button>
+          <button class="tab" data-file="css"><span class="dot" style="background:#38bdf8"></span>style.css</button>
+          <button class="tab" data-file="js"><span class="dot" style="background:#facc15"></span>app.js</button>
+          <button class="tab" data-file="py"><span class="dot" style="background:#4ade80"></span>main.py</button>
+        </div>
+        <span class="flex-1 min-w-[8px]"></span>
+        <button id="btnRun" class="btn btn-primary !h-8 flex-shrink-0" title="Run (Ctrl+Enter)"><i data-lucide="play"></i><span>Run</span></button>
+      </div>
+      <div class="h-10 flex items-center gap-1 px-2 border-b border-zinc-800/80 bg-[#0d0d10] flex-shrink-0 min-w-0">
+        <div class="relative">
+          <button class="btn btn-ghost !h-8 !px-2" data-menu="templatesMenu" title="Project templates"><i data-lucide="layout-template"></i><span class="hidden sm:inline">Templates</span><i data-lucide="chevron-down" class="opacity-50"></i></button>
+          <div id="templatesMenu" class="menu left-0 top-9"></div>
+        </div>
+        <div class="relative">
+          <button class="btn btn-ghost !h-8 !px-2" data-menu="aiMenu" title="Ask the AI about this file"><i data-lucide="wand-sparkles"></i><span class="hidden sm:inline">AI Assist</span><i data-lucide="chevron-down" class="opacity-50"></i></button>
+          <div id="aiMenu" class="menu left-0 top-9">
+            <div class="label">Current file</div>
+            <button data-ai="explain"><i data-lucide="book-open"></i>Explain this code</button>
+            <button data-ai="bugs"><i data-lucide="bug"></i>Find & fix bugs</button>
+            <button data-ai="comment"><i data-lucide="message-square-code"></i>Add comments & docs</button>
+            <button data-ai="optimize"><i data-lucide="gauge"></i>Optimize / refactor</button>
+            <button data-ai="tests"><i data-lucide="flask-conical"></i>Write tests</button>
+            <button data-ai="convert"><i data-lucide="arrow-left-right"></i>Convert JS ⇄ Python</button>
+          </div>
+        </div>
+        <span class="flex-1"></span>
+        <button id="btnFormat" class="icon-btn" title="Re-indent file"><i data-lucide="align-left"></i></button>
+        <button id="btnSnapshot" class="icon-btn" title="Save snapshot (Ctrl+S)"><i data-lucide="save"></i></button>
+        <button id="btnSnapshots" class="icon-btn" title="Snapshot history"><i data-lucide="history"></i></button>
+        <div class="relative">
+          <button class="icon-btn" data-menu="fileMenu" title="Export & share"><i data-lucide="share-2"></i></button>
+          <div id="fileMenu" class="menu right-0 top-9">
+            <button data-file-act="share"><i data-lucide="link"></i>Copy share link<small>URL</small></button>
+            <button data-file-act="bundle"><i data-lucide="file-code"></i>Download web app<small>.html</small></button>
+            <button data-file-act="current"><i data-lucide="download"></i>Download current file</button>
+            <button data-file-act="open"><i data-lucide="folder-open"></i>Open file into editor…</button>
+            <div class="sep"></div>
+            <button data-file-act="reset"><i data-lucide="rotate-ccw"></i>Reset current file</button>
+          </div>
+        </div>
+      </div>
+      <div id="editorHost"></div>
+      <div id="keybar"></div>
+      <div class="h-7 flex items-center gap-3 px-3 text-[11px] text-zinc-500 border-t border-zinc-800/80 bg-[#0b0b0e] flex-shrink-0 font-mono">
+        <span id="langLabel">HTML</span>
+        <span id="cursorPos">Ln 1, Col 1</span>
+        <span class="flex-1"></span>
+        <span id="saveState" class="flex items-center gap-1"><i data-lucide="check"></i>Saved</span>
+      </div>
+    </section>
+
+    <div class="resizer" data-resize="1" title="Drag to resize · double-click to reset"></div>
+
+    <!-- ---------- RUN PANEL ---------- -->
+    <section id="panel-run" class="panel" data-panel="run">
+      <div class="panel-head">
+        <div class="flex items-center gap-1.5 text-[13px] font-medium pl-1"><i data-lucide="app-window" class="text-cyan-400"></i>Live Preview</div>
+        <span class="flex-1"></span>
+        <button id="btnAuto" class="chip" title="Auto-refresh preview while typing"><i data-lucide="radio"></i><span>Live</span></button>
+        <div class="hidden sm:flex items-center">
+          <button class="icon-btn active" data-device="full" title="Fill panel"><i data-lucide="monitor"></i></button>
+          <button class="icon-btn" data-device="768" title="Tablet (768px)"><i data-lucide="tablet"></i></button>
+          <button class="icon-btn" data-device="390" title="Phone (390px)"><i data-lucide="smartphone"></i></button>
+        </div>
+        <button id="btnRefresh" class="icon-btn" title="Reload preview"><i data-lucide="refresh-cw"></i></button>
+        <button id="btnOpenTab" class="icon-btn" title="Open preview in new tab"><i data-lucide="external-link"></i></button>
+      </div>
+      <div id="runBody" class="flex-1 flex flex-col min-h-0">
+        <div id="previewStage">
+          <div id="previewFrameBox">
+            <iframe id="previewFrame" title="Live preview" sandbox="allow-scripts allow-modals allow-forms allow-popups allow-pointer-lock allow-downloads"></iframe>
+          </div>
+        </div>
+        <div id="termResizer" class="hresizer"></div>
+        <div id="terminal">
+          <div class="h-10 flex items-center gap-1 px-2 border-b border-zinc-800/80 flex-shrink-0 overflow-x-auto overflow-y-hidden scroll-thin">
+            <button class="tab active" data-term="py"><i data-lucide="terminal"></i>Python<span id="pyStatusDot" class="dot" style="background:#52525b"></span></button>
+            <button class="tab" data-term="console"><i data-lucide="square-terminal"></i>Console<span id="conBadge" class="badge hidden">0</span></button>
+            <span id="pyStatus" class="text-[11px] text-zinc-500 ml-1 truncate hidden sm:inline">Python idle</span>
+            <span class="flex-1"></span>
+            <button id="btnPyStop" class="icon-btn hidden" title="Stop Python (restarts the runtime)"><i data-lucide="octagon-x"></i></button>
+            <button id="btnPip" class="icon-btn" title="Install a Python package (micropip)"><i data-lucide="package-plus"></i></button>
+            <button id="btnStdin" class="icon-btn" title="Program input (stdin) for input()"><i data-lucide="keyboard"></i></button>
+            <button id="btnPyRestart" class="icon-btn" title="Restart Python runtime"><i data-lucide="rotate-ccw"></i></button>
+            <button id="btnTermCopy" class="icon-btn" title="Copy output"><i data-lucide="copy"></i></button>
+            <button id="btnTermClear" class="icon-btn" title="Clear output"><i data-lucide="eraser"></i></button>
+            <button id="btnTermMax" class="icon-btn" title="Maximize terminal"><i data-lucide="maximize-2"></i></button>
+            <button id="btnTermToggle" class="icon-btn" title="Collapse terminal"><i data-lucide="chevron-down"></i></button>
+          </div>
+          <div class="term-body">
+            <div id="stdinBox" class="hidden px-2 py-2 border-b border-zinc-800/80 bg-[#0e0e12]">
+              <div class="text-[11px] text-zinc-500 mb-1">stdin — each line is returned by one <code class="text-pink-300">input()</code> call</div>
+              <textarea id="stdin" rows="3" class="field font-mono !text-[12.5px] scroll-thin" placeholder="Alice&#10;42"></textarea>
+            </div>
+            <div id="pyOut" class="term-out scroll-thin"></div>
+            <div id="conOut" class="term-out scroll-thin hidden"></div>
+            <div id="replRow" class="flex items-center gap-2 px-2 py-1.5 border-t border-zinc-800/80 flex-shrink-0">
+              <span class="font-mono text-emerald-400 text-[13px] pl-1">&gt;&gt;&gt;</span>
+              <input id="replInput" class="flex-1 bg-transparent outline-none font-mono text-[13px] min-w-0 h-8" placeholder="Python REPL · ↑↓ history · %pip install pkg · %clear" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="go">
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ================= MOBILE NAV ================= -->
+  <nav id="mobileNav">
+    <button data-nav="chat" class="active"><i data-lucide="messages-square"></i>Chat<span class="nav-dot" id="navDot-chat"></span></button>
+    <button data-nav="code"><i data-lucide="code-xml"></i>Code<span class="nav-dot" id="navDot-code"></span></button>
+    <button data-nav="run"><i data-lucide="play-circle"></i>Run<span class="nav-dot" id="navDot-run"></span></button>
+  </nav>
+</div>
+
+<!-- ================= SETTINGS MODAL ================= -->
+<div id="modalSettings" class="modal">
+  <div class="card">
+    <div class="card-head"><i data-lucide="settings-2" class="text-cyan-400"></i><div class="font-semibold">Settings</div><span class="flex-1"></span><button class="icon-btn" data-close><i data-lucide="x"></i></button></div>
+    <div class="card-body scroll-thin">
+      <div class="set-section">AI model</div>
+      <div class="set-row !block">
+        <div class="lbl mb-2">Local model</div>
+        <div class="flex gap-2">
+          <select id="setModelSelect" class="field"></select>
+          <button id="setLoadBtn" class="btn btn-primary !h-[38px]"><i data-lucide="download"></i>Load</button>
+        </div>
+        <div id="modelInfo" class="hint mt-2 text-[12px] text-zinc-500"></div>
+      </div>
+      <div class="set-row"><div><div class="lbl">Auto-load cached model on startup</div><div class="hint">Instantly reloads weights already in your browser cache.</div></div><input type="checkbox" class="toggle" id="setAutoLoad"></div>
+      <div class="set-row"><div><div class="lbl">Run AI in a Web Worker</div><div class="hint">Keeps the UI smooth while generating. Disable if your browser has issues.</div></div><input type="checkbox" class="toggle" id="setWorker"></div>
+      <div class="set-row"><div><div class="lbl">Demo mode (simulated AI)</div><div class="hint">Test the UI and sandbox without WebGPU or downloads.</div></div><input type="checkbox" class="toggle" id="setDemo"></div>
+
+      <div class="set-section">Generation</div>
+      <div class="set-row !block"><div class="flex justify-between lbl"><span>Temperature</span><span id="setTempVal" class="font-mono text-cyan-300">0.6</span></div><input type="range" id="setTemp" min="0" max="1.5" step="0.05"></div>
+      <div class="set-row !block"><div class="flex justify-between lbl"><span>Top-p</span><span id="setTopPVal" class="font-mono text-cyan-300">0.95</span></div><input type="range" id="setTopP" min="0.1" max="1" step="0.01"></div>
+      <div class="set-row"><div><div class="lbl">Max new tokens</div></div><input type="number" id="setMaxTokens" class="field !w-28" min="64" max="8192" step="64"></div>
+      <div class="set-row"><div><div class="lbl">History messages sent</div><div class="hint">Older messages are trimmed to fit small context windows.</div></div><input type="number" id="setContext" class="field !w-28" min="2" max="60"></div>
+      <div class="set-row !block">
+        <div class="flex items-center justify-between mb-2"><div class="lbl">System prompt</div><button id="btnResetSystem" class="btn !h-7 !text-[12px]"><i data-lucide="rotate-ccw"></i>Reset</button></div>
+        <textarea id="setSystem" rows="7" class="field font-mono !text-[12px] scroll-thin"></textarea>
+      </div>
+
+      <div class="set-section">Workbench</div>
+      <div class="set-row"><div><div class="lbl">Auto-run code the AI writes</div><div class="hint">Executes the final runnable code block when a reply finishes.</div></div><input type="checkbox" class="toggle" id="setAutoRunAI"></div>
+      <div class="set-row"><div><div class="lbl">Live preview while typing</div></div><input type="checkbox" class="toggle" id="setAutoPreview"></div>
+      <div class="set-row"><div><div class="lbl">Word wrap in editor</div></div><input type="checkbox" class="toggle" id="setWrap"></div>
+      <div class="set-row"><div><div class="lbl">Enter sends message</div><div class="hint">Shift+Enter inserts a newline. On touch devices Enter always adds a newline.</div></div><input type="checkbox" class="toggle" id="setEnter"></div>
+      <div class="set-row"><div><div class="lbl">Editor font size</div></div><input type="number" id="setFont" class="field !w-28" min="10" max="24"></div>
+
+      <div class="set-section">Device & storage</div>
+      <div id="gpuInfo" class="text-[12.5px] text-zinc-400 font-mono leading-6 bg-[#0c0c0f] border border-zinc-800 rounded-lg p-3">Detecting…</div>
+      <div id="storageInfo" class="text-[12.5px] text-zinc-400 mt-2"></div>
+      <div class="flex flex-wrap gap-2 mt-3">
+        <button id="btnClearModelCache" class="btn"><i data-lucide="hard-drive"></i>Delete selected model from cache</button>
+        <button id="btnExportAll" class="btn"><i data-lucide="download"></i>Backup all data</button>
+        <button id="btnImportAll" class="btn"><i data-lucide="upload"></i>Restore backup</button>
+        <button id="btnResetAll" class="btn btn-danger"><i data-lucide="trash-2"></i>Reset app</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= HELP MODAL ================= -->
+<div id="modalHelp" class="modal">
+  <div class="card">
+    <div class="card-head"><i data-lucide="circle-help" class="text-cyan-400"></i><div class="font-semibold">OmniCore Studio — Guide</div><span class="flex-1"></span><button class="icon-btn" data-close><i data-lucide="x"></i></button></div>
+    <div class="card-body scroll-thin md text-[13.5px]">
+      <p><b>OmniCore Studio</b> runs a large language model directly on your GPU via <b>WebLLM + WebGPU</b>, a sandboxed web preview for HTML/CSS/JS, and a real <b>CPython 3.12</b> runtime via <b>Pyodide</b>. Nothing you type leaves your device (voice input excepted — it uses your browser's speech service).</p>
+      <h3>Getting started</h3>
+      <ol>
+        <li>Pick a model (SmolLM2 1.7B is the fast default; 7–8B models need ~6 GB of GPU memory) and press <b>Load</b>. Weights download once and are cached for offline use.</li>
+        <li>Ask for code. Every code block in a reply gets <b>Run in Sandbox</b>, <b>Insert</b>, <b>Copy</b> and <b>Download</b> buttons.</li>
+        <li>Python errors and browser console errors get a <b>Fix with AI</b> button that sends the code and the traceback back to the chat.</li>
+      </ol>
+      <h3>Keyboard shortcuts</h3>
+      <table>
+        <tr><td><kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Enter</kbd></td><td>Run current file</td></tr>
+        <tr><td><kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>S</kbd></td><td>Save a snapshot of all files</td></tr>
+        <tr><td><kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>K</kbd></td><td>Focus the chat box</td></tr>
+        <tr><td><kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>N</kbd></td><td>New chat</td></tr>
+        <tr><td><kbd>Alt</kbd> + <kbd>1</kbd>/<kbd>2</kbd>/<kbd>3</kbd></td><td>Focus Chat / Code / Run</td></tr>
+        <tr><td><kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>/</kbd></td><td>Toggle comment in the editor</td></tr>
+        <tr><td><kbd>Esc</kbd></td><td>Stop generation · close dialogs</td></tr>
+        <tr><td><kbd>?</kbd></td><td>Open this guide</td></tr>
+      </table>
+      <h3>Python tips</h3>
+      <ul>
+        <li><code>numpy</code>, <code>pandas</code>, <code>matplotlib</code>, <code>scipy</code>, <code>sympy</code> and more load automatically from your imports. <code>plt.show()</code> renders charts in the terminal.</li>
+        <li>Pure-Python packages: <code>%pip install rich</code> in the REPL, or the <i>package</i> button.</li>
+        <li>For <code>input()</code>, open the <i>keyboard</i> panel and type one line per call.</li>
+        <li>The REPL shares variables with the last run of <code>main.py</code>.</li>
+      </ul>
+      <h3>Enabling WebGPU</h3>
+      <ul>
+        <li><b>Desktop:</b> Chrome / Edge 113+ have it on by default. Firefox 141+ on Windows; Safari 26+ on macOS.</li>
+        <li><b>Android:</b> Chrome 121+ on most recent devices.</li>
+        <li><b>iPhone / iPad:</b> Safari on iOS 26+ (or enable WebGPU in Settings › Safari › Advanced › Feature Flags on older versions).</li>
+        <li>No WebGPU? Demo mode keeps the whole workbench usable.</li>
+      </ul>
+      <h3>Mobile</h3>
+      <p>Use the bottom tabs or swipe left/right on the panel headers to switch between Chat, Code and Run. While editing on a touch device, a coding key bar appears above the keyboard.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ================= SNAPSHOTS MODAL ================= -->
+<div id="modalSnapshots" class="modal">
+  <div class="card">
+    <div class="card-head"><i data-lucide="history" class="text-cyan-400"></i><div class="font-semibold">Snapshots</div><span class="text-[12px] text-zinc-500">· version history of all files</span><span class="flex-1"></span><button class="icon-btn" data-close><i data-lucide="x"></i></button></div>
+    <div class="card-body scroll-thin"><div id="snapList" class="flex flex-col gap-2"></div></div>
+  </div>
+</div>
+
+<input type="file" id="fileInput" class="hidden">
+<div id="toasts"></div>
+
+<script type="module">
+/* =====================================================================
+   OmniCore Studio — single-file, offline-first AI + code workbench
+   ===================================================================== */
+
+// ---------------------------------------------------------------------
+// 0. Constants & CDN endpoints
+// ---------------------------------------------------------------------
+const WEBLLM_URL = 'https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@0.2.85/+esm';
+const PYODIDE_BASE = 'https://cdn.jsdelivr.net/pyodide/v0.26.2/full/';
+const FENCE = '`'.repeat(3);
+const IS_TOUCH = matchMedia('(pointer: coarse)').matches;
+const MOBILE_MQ = matchMedia('(max-width: 899px)');
+const DEFAULT_MODEL = 'SmolLM2-1.7B-Instruct';
+
+// Curated model list. Final ID = base + "-q4f16_1-MLC" (or q4f32 when the GPU lacks shader-f16).
+const MODELS = [
+  { base: 'SmolLM2-1.7B-Instruct', label: 'SmolLM2 1.7B — Fast (default)', size: '~1.0 GB', tier: 'Mobile & desktop' },
+  { base: 'Llama-3.2-1B-Instruct', label: 'Llama 3.2 1B — Ultra light', size: '~0.9 GB', tier: 'Mobile & desktop' },
+  { base: 'Qwen2.5-Coder-1.5B-Instruct', label: 'Qwen2.5 Coder 1.5B — Code', size: '~1.6 GB', tier: 'Mobile & desktop' },
+  { base: 'SmolLM2-360M-Instruct', label: 'SmolLM2 360M — Tiny (older phones)', size: '~0.4 GB', tier: 'Low-end devices' },
+  { base: 'Llama-3.2-3B-Instruct', label: 'Llama 3.2 3B — Balanced', size: '~2.3 GB', tier: 'Laptop / flagship phone' },
+  { base: 'Qwen2.5-Coder-3B-Instruct', label: 'Qwen2.5 Coder 3B — Strong code', size: '~2.5 GB', tier: 'Laptop / flagship phone' },
+  { base: 'Phi-3.5-mini-instruct', label: 'Phi-3.5 mini 3.8B — Reasoning', size: '~3.7 GB', tier: 'Laptop' },
+  { base: 'Qwen3-4B', label: 'Qwen3 4B — Thinking model', size: '~3.4 GB', tier: 'Laptop' },
+  { base: 'Qwen2.5-Coder-7B-Instruct', label: 'Qwen2.5 Coder 7B — Pro code', size: '~5.1 GB', tier: 'Desktop GPU' },
+  { base: 'Llama-3.1-8B-Instruct', label: 'Llama 3.1 8B — Desktop power', size: '~5.0 GB', tier: 'Desktop GPU' },
+  { base: 'DeepSeek-R1-Distill-Llama-8B', label: 'DeepSeek R1 Distill 8B — Deep reasoning', size: '~5.0 GB', tier: 'Desktop GPU' },
+];
+
+const DEFAULT_SYSTEM_PROMPT = [
+  'You are OmniCore, an elite full-stack software engineer and analytical assistant running fully offline inside the user\'s browser (OmniCore Studio).',
+  '',
+  'Your workbench:',
+  '- A sandboxed web preview that runs HTML, CSS and JavaScript (canvas games, UIs, visualizations).',
+  '- A Python 3.12 runtime (Pyodide) with numpy, pandas, matplotlib (plt.show() renders inline), scipy, sympy and the standard library. No network sockets, no threads; input() reads from a stdin box.',
+  '',
+  'Rules:',
+  '1. Always put runnable code in fenced blocks with a language tag: ```html, ```javascript, ```css or ```python.',
+  '2. For web apps prefer ONE complete, self-contained ```html document with inline <style> and <script>. Do not rely on external assets.',
+  '3. Write correct, modern, well-structured code. Give complete files, never placeholders like "rest of code here".',
+  '4. Be concise: a short plan or explanation, then the code, then 1-3 bullet notes if useful.',
+  '5. When debugging, state the root cause first, then provide the full corrected code.',
+  '6. For analytical questions reason step by step, show key numbers, and verify results with Python when helpful.'
+].join('\n');
+
+const DEFAULT_SETTINGS = {
+  model: DEFAULT_MODEL, temperature: 0.6, topP: 0.95, maxTokens: 1536, contextMsgs: 12,
+  systemPrompt: DEFAULT_SYSTEM_PROMPT, includeEditor: false, autoPreview: true, autoRunAI: false,
+  autoLoad: true, useWorker: true, demo: false, fontSize: 14, wrap: false, enterSends: true,
+};
+const DEFAULT_LAYOUT = { chat: 31, code: 37, term: 42, termCollapsed: false, termMax: false, device: 'full', termTab: 'py' };
+const FILES = {
+  html: { name: 'index.html', label: 'HTML', mode: 'htmlmixed', ext: 'html', mime: 'text/html' },
+  css: { name: 'style.css', label: 'CSS', mode: 'css', ext: 'css', mime: 'text/css' },
+  js: { name: 'app.js', label: 'JavaScript', mode: 'javascript', ext: 'js', mime: 'text/javascript' },
+  py: { name: 'main.py', label: 'Python', mode: 'python', ext: 'py', mime: 'text/x-python' },
+};
+
+// ---------------------------------------------------------------------
+// 1. Templates (default buffers)
+// ---------------------------------------------------------------------
+const TEMPLATES = {
+  welcome: {
+    label: 'Welcome showcase', icon: 'sparkles', kind: 'web',
+    files: {
+      html: `<main class="hero">
+  <canvas id="bg"></canvas>
+  <div class="card">
+    <h1>Hello from <span>OmniCore</span></h1>
+    <p>This page is running live in the sandbox. Edit <b>index.html</b>, <b>style.css</b> or <b>app.js</b> and watch it update.</p>
+    <button id="btn">Clicked 0 times</button>
+    <small>Tip: ask the AI to "build a breakout game" and press <i>Run in Sandbox</i>.</small>
+  </div>
+</main>`,
+      css: `* { box-sizing: border-box; margin: 0; }
+body { font-family: system-ui, sans-serif; background: #050816; color: #e2e8f0; min-height: 100vh; overflow: hidden; }
+.hero { position: relative; min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+#bg { position: fixed; inset: 0; width: 100%; height: 100%; }
+.card { position: relative; max-width: 440px; padding: 32px; border-radius: 20px; text-align: center;
+  background: rgba(15, 23, 42, .65); border: 1px solid rgba(148, 163, 184, .2); backdrop-filter: blur(12px);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, .45); }
+h1 { font-size: 28px; margin-bottom: 12px; }
+h1 span { background: linear-gradient(90deg, #22d3ee, #a78bfa); -webkit-background-clip: text; background-clip: text; color: transparent; }
+p { color: #94a3b8; line-height: 1.6; margin-bottom: 20px; }
+button { font: inherit; font-weight: 600; padding: 12px 22px; border: 0; border-radius: 12px; cursor: pointer; color: white;
+  background: linear-gradient(135deg, #0891b2, #7c3aed); transition: transform .15s; }
+button:active { transform: scale(.96); }
+small { display: block; margin-top: 18px; color: #64748b; }`,
+      js: `const canvas = document.getElementById('bg');
+const ctx = canvas.getContext('2d');
+const dots = [];
+let w, h;
+
+function resize() {
+  w = canvas.width = innerWidth * devicePixelRatio;
+  h = canvas.height = innerHeight * devicePixelRatio;
+}
+addEventListener('resize', resize);
+resize();
+
+for (let i = 0; i < 90; i++) {
+  dots.push({ x: Math.random() * w, y: Math.random() * h, vx: (Math.random() - .5) * .6, vy: (Math.random() - .5) * .6, r: Math.random() * 2 + 1 });
+}
+
+function frame() {
+  ctx.clearRect(0, 0, w, h);
+  for (const d of dots) {
+    d.x = (d.x + d.vx + w) % w;
+    d.y = (d.y + d.vy + h) % h;
+    ctx.beginPath();
+    ctx.arc(d.x, d.y, d.r * devicePixelRatio, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(103, 232, 249, .7)';
+    ctx.fill();
+  }
+  for (let i = 0; i < dots.length; i++) {
+    for (let j = i + 1; j < dots.length; j++) {
+      const a = dots[i], b = dots[j];
+      const dist = Math.hypot(a.x - b.x, a.y - b.y);
+      if (dist < 140 * devicePixelRatio) {
+        ctx.strokeStyle = 'rgba(167, 139, 250,' + (1 - dist / (140 * devicePixelRatio)) * .35 + ')';
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+      }
+    }
+  }
+  requestAnimationFrame(frame);
+}
+frame();
+
+let clicks = 0;
+document.getElementById('btn').addEventListener('click', (e) => {
+  clicks++;
+  e.target.textContent = 'Clicked ' + clicks + (clicks === 1 ? ' time' : ' times');
+  console.log('Button clicked', { clicks });
+});
+console.info('Welcome to OmniCore Studio! Logs from the preview appear in the Console tab.');`,
+    },
+  },
+  snake: {
+    label: 'Neon Snake (canvas game)', icon: 'gamepad-2', kind: 'web',
+    files: {
+      html: `<div class="wrap">
+  <header><h1>NEON SNAKE</h1><div class="scores">Score <b id="score">0</b> · Best <b id="best">0</b></div></header>
+  <canvas id="game"></canvas>
+  <div class="pad">
+    <button data-d="up">▲</button>
+    <div><button data-d="left">◀</button><button data-d="down">▼</button><button data-d="right">▶</button></div>
+  </div>
+  <p class="hint">Arrows / WASD / swipe · Space or tap to restart</p>
+</div>`,
+      css: `* { box-sizing: border-box; margin: 0; }
+body { background: #030712; color: #e5e7eb; font-family: ui-monospace, monospace; min-height: 100vh; display: grid; place-items: center; touch-action: none; }
+.wrap { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 12px; }
+header { display: flex; gap: 24px; align-items: baseline; justify-content: space-between; width: 100%; }
+h1 { font-size: 20px; letter-spacing: 4px; color: #22d3ee; text-shadow: 0 0 12px #22d3ee; }
+.scores b { color: #f472b6; }
+canvas { border-radius: 12px; box-shadow: 0 0 0 2px #164e63, 0 0 40px rgba(34, 211, 238, .25); }
+.pad { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.pad button { width: 56px; height: 48px; margin: 0 3px; font-size: 18px; border-radius: 10px; border: 1px solid #164e63; background: #0b1324; color: #67e8f9; }
+.pad button:active { background: #164e63; }
+.hint { color: #6b7280; font-size: 12px; }
+@media (pointer: fine) { .pad { display: none; } }`,
+      js: `const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const scoreEl = document.getElementById('score');
+const bestEl = document.getElementById('best');
+const GRID = 20;
+let cell, snake, dir, nextDir, food, score, alive, timer, speed;
+let best = Number(localStorage.getItem('snake-best') || 0);
+
+function resize() {
+  const size = Math.max(200, Math.min(innerWidth - 24, innerHeight - 190, 480));
+  canvas.width = canvas.height = Math.floor(size / GRID) * GRID;
+  cell = canvas.width / GRID;
+  draw();
+}
+
+function reset() {
+  snake = [{ x: 10, y: 10 }, { x: 9, y: 10 }, { x: 8, y: 10 }];
+  dir = nextDir = { x: 1, y: 0 };
+  score = 0; speed = 120; alive = true;
+  scoreEl.textContent = score; bestEl.textContent = best;
+  placeFood();
+  clearInterval(timer);
+  timer = setInterval(step, speed);
+}
+
+function placeFood() {
+  do { food = { x: Math.floor(Math.random() * GRID), y: Math.floor(Math.random() * GRID) }; }
+  while (snake.some(s => s.x === food.x && s.y === food.y));
+}
+
+function step() {
+  dir = nextDir;
+  const head = { x: (snake[0].x + dir.x + GRID) % GRID, y: (snake[0].y + dir.y + GRID) % GRID };
+  if (snake.some(s => s.x === head.x && s.y === head.y)) {
+    alive = false;
+    clearInterval(timer);
+    if (score > best) { best = score; localStorage.setItem('snake-best', best); }
+    bestEl.textContent = best;
+    console.log('Game over! Score: ' + score);
+    draw();
+    return;
+  }
+  snake.unshift(head);
+  if (head.x === food.x && head.y === food.y) {
+    score++;
+    scoreEl.textContent = score;
+    placeFood();
+    if (speed > 55) { speed -= 4; clearInterval(timer); timer = setInterval(step, speed); }
+  } else {
+    snake.pop();
+  }
+  draw();
+}
+
+function draw() {
+  if (!snake) return;
+  ctx.fillStyle = '#0b1020';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.strokeStyle = 'rgba(34, 211, 238, .05)';
+  for (let i = 0; i <= GRID; i++) {
+    ctx.beginPath(); ctx.moveTo(i * cell, 0); ctx.lineTo(i * cell, canvas.height); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, i * cell); ctx.lineTo(canvas.width, i * cell); ctx.stroke();
+  }
+  ctx.shadowBlur = 18; ctx.shadowColor = '#f472b6'; ctx.fillStyle = '#f472b6';
+  ctx.beginPath(); ctx.arc((food.x + .5) * cell, (food.y + .5) * cell, cell * .35, 0, Math.PI * 2); ctx.fill();
+  ctx.shadowColor = '#22d3ee';
+  snake.forEach((s, i) => {
+    ctx.fillStyle = i === 0 ? '#cffafe' : 'hsl(' + (188 + i * 3) + ', 90%, ' + Math.max(35, 62 - i) + '%)';
+    ctx.fillRect(s.x * cell + 1, s.y * cell + 1, cell - 2, cell - 2);
+  });
+  ctx.shadowBlur = 0;
+  if (!alive) {
+    ctx.fillStyle = 'rgba(3, 7, 18, .7)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#f472b6'; ctx.textAlign = 'center';
+    ctx.font = 'bold ' + Math.round(cell * 1.4) + 'px monospace';
+    ctx.fillText('GAME OVER', canvas.width / 2, canvas.height / 2);
+    ctx.fillStyle = '#9ca3af'; ctx.font = Math.round(cell * .7) + 'px monospace';
+    ctx.fillText('tap or press space', canvas.width / 2, canvas.height / 2 + cell * 1.5);
+  }
+}
+
+function turn(d) {
+  const map = { up: { x: 0, y: -1 }, down: { x: 0, y: 1 }, left: { x: -1, y: 0 }, right: { x: 1, y: 0 } };
+  const n = map[d];
+  if (n && (n.x !== -dir.x || n.y !== -dir.y)) nextDir = n;
+}
+
+addEventListener('keydown', e => {
+  const k = { ArrowUp: 'up', w: 'up', ArrowDown: 'down', s: 'down', ArrowLeft: 'left', a: 'left', ArrowRight: 'right', d: 'right' }[e.key];
+  if (k) { e.preventDefault(); turn(k); }
+  if (e.key === ' ' && !alive) reset();
+});
+document.querySelectorAll('[data-d]').forEach(b => b.addEventListener('pointerdown', () => turn(b.dataset.d)));
+let touchStart = null;
+canvas.addEventListener('touchstart', e => { touchStart = e.touches[0]; if (!alive) reset(); }, { passive: true });
+canvas.addEventListener('touchend', e => {
+  if (!touchStart) return;
+  const t = e.changedTouches[0], dx = t.clientX - touchStart.clientX, dy = t.clientY - touchStart.clientY;
+  if (Math.max(Math.abs(dx), Math.abs(dy)) > 24) turn(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up'));
+});
+canvas.addEventListener('click', () => { if (!alive) reset(); });
+addEventListener('resize', resize);
+resize();
+reset();`,
+    },
+  },
+  todo: {
+    label: 'Task board (DOM app)', icon: 'list-checks', kind: 'web',
+    files: {
+      html: `<div class="app">
+  <h1>Task Board</h1>
+  <form id="form"><input id="text" placeholder="Add a task and press Enter…" autocomplete="off"><button>Add</button></form>
+  <div class="filters"><button data-f="all" class="on">All</button><button data-f="open">Open</button><button data-f="done">Done</button><span id="count"></span></div>
+  <ul id="list"></ul>
+</div>`,
+      css: `* { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui, sans-serif; background: #f8fafc; color: #0f172a; }
+.app { max-width: 520px; margin: 40px auto; padding: 0 16px; }
+h1 { font-size: 26px; margin-bottom: 16px; }
+form { display: flex; gap: 8px; }
+input { flex: 1; padding: 12px 14px; border-radius: 10px; border: 1px solid #cbd5e1; font-size: 15px; }
+button { padding: 10px 16px; border-radius: 10px; border: 0; background: #0f172a; color: #fff; font-weight: 600; cursor: pointer; }
+.filters { display: flex; gap: 6px; margin: 16px 0; align-items: center; }
+.filters button { background: #e2e8f0; color: #334155; padding: 6px 12px; }
+.filters button.on { background: #0891b2; color: #fff; }
+#count { margin-left: auto; color: #64748b; font-size: 13px; }
+ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+li { display: flex; align-items: center; gap: 10px; background: #fff; padding: 12px 14px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+li.done span { text-decoration: line-through; color: #94a3b8; }
+li span { flex: 1; }
+li .del { background: transparent; color: #ef4444; padding: 4px 8px; }`,
+      js: `const KEY = 'omni-tasks';
+let tasks = JSON.parse(localStorage.getItem(KEY) || '[]');
+let filter = 'all';
+const list = document.getElementById('list');
+
+function save() { localStorage.setItem(KEY, JSON.stringify(tasks)); }
+
+function render() {
+  list.innerHTML = '';
+  tasks
+    .filter(t => filter === 'all' || (filter === 'done' ? t.done : !t.done))
+    .forEach(t => {
+      const li = document.createElement('li');
+      li.className = t.done ? 'done' : '';
+      const box = document.createElement('input');
+      box.type = 'checkbox'; box.checked = t.done;
+      box.onchange = () => { t.done = box.checked; save(); render(); };
+      const span = document.createElement('span');
+      span.textContent = t.text;
+      const del = document.createElement('button');
+      del.className = 'del'; del.textContent = '✕';
+      del.onclick = () => { tasks = tasks.filter(x => x !== t); save(); render(); };
+      li.append(box, span, del);
+      list.append(li);
+    });
+  const open = tasks.filter(t => !t.done).length;
+  document.getElementById('count').textContent = open + ' open · ' + tasks.length + ' total';
+}
+
+document.getElementById('form').addEventListener('submit', e => {
+  e.preventDefault();
+  const input = document.getElementById('text');
+  const text = input.value.trim();
+  if (!text) return;
+  tasks.unshift({ text, done: false, created: Date.now() });
+  input.value = '';
+  save(); render();
+  console.log('Added task:', text);
+});
+
+document.querySelectorAll('[data-f]').forEach(b => b.addEventListener('click', () => {
+  filter = b.dataset.f;
+  document.querySelectorAll('[data-f]').forEach(x => x.classList.toggle('on', x === b));
+  render();
+}));
+
+if (!tasks.length) tasks = [{ text: 'Try the AI Assist menu', done: false }, { text: 'Load a local model', done: true }];
+render();`,
+    },
+  },
+  pyData: {
+    label: 'Python · Data & charts', icon: 'chart-line', kind: 'py',
+    files: {
+      py: `"""Data analysis with numpy + matplotlib, running in WebAssembly."""
+import numpy as np
+import matplotlib.pyplot as plt
+
+rng = np.random.default_rng(42)
+x = np.linspace(0, 4 * np.pi, 400)
+signal = np.sin(x) * np.exp(-x / 10)
+noisy = signal + rng.normal(0, 0.08, x.size)
+
+# Moving-average smoothing
+window = 15
+kernel = np.ones(window) / window
+smooth = np.convolve(noisy, kernel, mode="same")
+
+print("Samples:", x.size)
+print("Noise std: %.4f" % (noisy - signal).std())
+print("Smoothing RMSE: %.4f" % np.sqrt(((smooth - signal) ** 2).mean()))
+
+fig, axes = plt.subplots(1, 2, figsize=(10, 3.6))
+fig.patch.set_facecolor("#18181b")
+for ax in axes:
+    ax.set_facecolor("#18181b")
+    ax.tick_params(colors="#a1a1aa")
+    for s in ax.spines.values():
+        s.set_color("#3f3f46")
+
+axes[0].plot(x, noisy, color="#64748b", lw=0.8, label="noisy")
+axes[0].plot(x, smooth, color="#22d3ee", lw=2, label="smoothed")
+axes[0].plot(x, signal, color="#f472b6", lw=1.2, ls="--", label="truth")
+axes[0].set_title("Damped sine", color="#e4e4e7")
+axes[0].legend(facecolor="#27272a", labelcolor="#e4e4e7", edgecolor="#3f3f46")
+
+axes[1].hist(noisy - signal, bins=30, color="#a78bfa", alpha=0.85)
+axes[1].set_title("Residual distribution", color="#e4e4e7")
+
+plt.tight_layout()
+plt.show()`,
+    },
+  },
+  pyAlgo: {
+    label: 'Python · Algorithms', icon: 'binary', kind: 'py',
+    files: {
+      py: `"""OmniCore Studio - real CPython running 100% in your browser (Pyodide)."""
+import sys
+import random
+import statistics
+from functools import lru_cache
+
+print("Python", sys.version.split()[0], "on", sys.platform)
+
+
+@lru_cache(maxsize=None)
+def fib(n: int) -> int:
+    return n if n < 2 else fib(n - 1) + fib(n - 2)
+
+
+def primes(limit: int) -> list[int]:
+    sieve = [True] * (limit + 1)
+    sieve[0:2] = [False, False]
+    for i in range(2, int(limit ** 0.5) + 1):
+        if sieve[i]:
+            sieve[i * i :: i] = [False] * len(sieve[i * i :: i])
+    return [i for i, ok in enumerate(sieve) if ok]
+
+
+def quicksort(xs: list[int]) -> list[int]:
+    if len(xs) <= 1:
+        return xs
+    pivot, *rest = xs
+    return quicksort([v for v in rest if v < pivot]) + [pivot] + quicksort([v for v in rest if v >= pivot])
+
+
+print("Fibonacci:", [fib(i) for i in range(15)])
+print("fib(200) =", fib(200))
+print("Primes < 60:", primes(60))
+
+random.seed(7)
+data = [random.randint(1, 100) for _ in range(12)]
+print("Data:     ", data)
+print("Sorted:   ", quicksort(data))
+print("Mean: %.2f | Median: %s | Stdev: %.2f" % (statistics.mean(data), statistics.median(data), statistics.stdev(data)))
+
+# Tip: open the keyboard panel in the terminal to feed input() lines,
+# or use the REPL below - it shares variables with this script.`,
+    },
+  },
+};
+
+// ---------------------------------------------------------------------
+// 2. Tiny helpers
+// ---------------------------------------------------------------------
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+const escapeHtml = (s) => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmtBytes = (b) => { if (!b && b !== 0) return '—'; const u = ['B', 'KB', 'MB', 'GB', 'TB']; let i = 0; while (b >= 1024 && i < u.length - 1) { b /= 1024; i++; } return b.toFixed(b < 10 && i > 0 ? 1 : 0) + ' ' + u[i]; };
+const fmtTime = (ts) => { const d = new Date(ts); const now = new Date(); return d.toDateString() === now.toDateString() ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); };
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+let iconQueued = false;
+function icons() {
+  if (iconQueued || !window.lucide) return;
+  iconQueued = true;
+  requestAnimationFrame(() => { iconQueued = false; try { lucide.createIcons({ attrs: { 'stroke-width': 2 } }); } catch (e) { /* offline: icons missing */ } });
+}
+const ic = (name, extra = '') => `<i data-lucide="${name}" ${extra}></i>`;
+
+function toast(msg, type = 'info', opts = {}) {
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  const iconName = { ok: 'circle-check', err: 'circle-alert', warn: 'triangle-alert', info: 'info' }[type] || 'info';
+  const color = { ok: 'text-emerald-400', err: 'text-red-400', warn: 'text-amber-400', info: 'text-cyan-400' }[type];
+  el.innerHTML = `<span class="${color}">${ic(iconName)}</span><span class="flex-1 min-w-0">${escapeHtml(msg)}</span>`;
+  if (opts.action) {
+    const b = document.createElement('button');
+    b.className = 'btn !h-7 !text-[12px]';
+    b.textContent = opts.action.label;
+    b.onclick = () => { opts.action.run(); el.remove(); };
+    el.append(b);
+  }
+  $('#toasts').append(el);
+  icons();
+  setTimeout(() => { el.style.transition = 'opacity .3s'; el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, opts.duration || (opts.action ? 7000 : 3200));
+}
+
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); }
+  catch {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.append(ta); ta.select();
+    try { document.execCommand('copy'); } finally { ta.remove(); }
+  }
+  toast('Copied to clipboard', 'ok', { duration: 1600 });
+}
+
+function downloadFile(name, content, mime = 'text/plain') {
+  const blob = content instanceof Blob ? content : new Blob([content], { type: mime + ';charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = Object.assign(document.createElement('a'), { href: url, download: name });
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+function pickFile(accept) {
+  return new Promise((resolve) => {
+    const inp = $('#fileInput');
+    inp.value = ''; inp.accept = accept || '';
+    inp.onchange = () => resolve(inp.files[0] || null);
+    inp.click();
+  });
+}
+
+// ---------------------------------------------------------------------
+// 3. Persistent storage (IndexedDB key/value with localStorage fallback)
+// ---------------------------------------------------------------------
+const KV = {
+  db: null,
+  async open() {
+    if (!('indexedDB' in window)) return;
+    this.db = await new Promise((res) => {
+      try {
+        const r = indexedDB.open('omnicore-studio', 1);
+        r.onupgradeneeded = () => r.result.createObjectStore('kv');
+        r.onsuccess = () => res(r.result);
+        r.onerror = () => res(null);
+        r.onblocked = () => res(null);
+      } catch { res(null); }
+    });
+  },
+  async get(key) {
+    if (this.db) {
+      try {
+        const v = await new Promise((res, rej) => {
+          const q = this.db.transaction('kv').objectStore('kv').get(key);
+          q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error);
+        });
+        if (v !== undefined) return v;
+      } catch { /* fall through */ }
+    }
+    try { const raw = localStorage.getItem('omni:' + key); return raw ? JSON.parse(raw) : undefined; } catch { return undefined; }
+  },
+  async set(key, value) {
+    if (this.db) {
+      try {
+        await new Promise((res, rej) => {
+          const tx = this.db.transaction('kv', 'readwrite');
+          tx.objectStore('kv').put(value, key);
+          tx.oncomplete = res; tx.onerror = () => rej(tx.error); tx.onabort = () => rej(tx.error);
+        });
+        return;
+      } catch { /* fall through */ }
+    }
+    try { localStorage.setItem('omni:' + key, JSON.stringify(value)); }
+    catch { toast('Local storage is full — export your chats to keep them safe.', 'warn'); }
+  },
+  async clear() {
+    if (this.db) { try { await new Promise((res) => { const tx = this.db.transaction('kv', 'readwrite'); tx.objectStore('kv').clear(); tx.oncomplete = res; tx.onerror = res; }); } catch { } }
+    try { Object.keys(localStorage).filter(k => k.startsWith('omni:')).forEach(k => localStorage.removeItem(k)); } catch { }
+  },
+};
+
+const S = {
+  settings: { ...DEFAULT_SETTINGS },
+  layout: { ...DEFAULT_LAYOUT },
+  files: { html: TEMPLATES.welcome.files.html, css: TEMPLATES.welcome.files.css, js: TEMPLATES.welcome.files.js, py: TEMPLATES.pyAlgo.files.py },
+  activeFile: 'html',
+  convs: [],
+  activeConv: null,
+  snapshots: [],
+  mobilePanel: 'chat',
+  editIndex: null,
+  replHistory: [],
+};
+
+const saveTimers = {};
+const SAVE_KEYS = { settings: () => S.settings, layout: () => S.layout, files: () => ({ files: S.files, activeFile: S.activeFile }), convs: () => ({ convs: S.convs, active: S.activeConv }), snapshots: () => S.snapshots, ui: () => ({ mobilePanel: S.mobilePanel, replHistory: S.replHistory.slice(-100) }) };
+function save(key, delay = 400) {
+  clearTimeout(saveTimers[key]);
+  if (key === 'files') setSaveState('saving');
+  saveTimers[key] = setTimeout(async () => {
+    delete saveTimers[key];
+    await KV.set(key, JSON.parse(JSON.stringify(SAVE_KEYS[key]())));
+    if (key === 'files') setSaveState('saved');
+  }, delay);
+}
+function flushSaves() { Object.keys(saveTimers).forEach(k => { clearTimeout(saveTimers[k]); delete saveTimers[k]; KV.set(k, JSON.parse(JSON.stringify(SAVE_KEYS[k]()))); }); }
+function setSaveState(s) {
+  const el = $('#saveState');
+  el.innerHTML = s === 'saving' ? `${ic('loader-circle', 'class="animate-spin"')}Saving…` : `${ic('check')}Saved`;
+  icons();
+}
+
+async function loadState() {
+  await KV.open();
+  const [settings, layout, files, convs, snaps, ui] = await Promise.all(['settings', 'layout', 'files', 'convs', 'snapshots', 'ui'].map(k => KV.get(k)));
+  if (settings) S.settings = { ...DEFAULT_SETTINGS, ...settings };
+  if (layout) S.layout = { ...DEFAULT_LAYOUT, ...layout };
+  if (files?.files) { S.files = { ...S.files, ...files.files }; S.activeFile = FILES[files.activeFile] ? files.activeFile : 'html'; }
+  if (convs?.convs?.length) { S.convs = convs.convs; S.activeConv = convs.active; }
+  if (Array.isArray(snaps)) S.snapshots = snaps;
+  if (ui) { S.mobilePanel = ui.mobilePanel || 'chat'; S.replHistory = ui.replHistory || []; }
+  if (!S.convs.length) newConversation(false);
+  if (!S.convs.find(c => c.id === S.activeConv)) S.activeConv = S.convs[0].id;
+}
+
+// ---------------------------------------------------------------------
+// 4. Markdown rendering
+// ---------------------------------------------------------------------
+if (window.marked) marked.setOptions({ gfm: true, breaks: true });
+
+function mdLite(text) {
+  // Fallback renderer used only if the marked CDN failed to load.
+  const parts = text.split(/```(\w*)\n?([\s\S]*?)(?:```|$)/g);
+  let html = '';
+  for (let i = 0; i < parts.length; i++) {
+    if (i % 3 === 0) html += '<p>' + escapeHtml(parts[i]).replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>') + '</p>';
+    else if (i % 3 === 1) { html += `<pre><code class="language-${escapeHtml(parts[i] || 'text')}">${escapeHtml(parts[i + 1] || '')}</code></pre>`; i++; }
+  }
+  return html;
+}
+
+function renderMarkdown(text) {
+  let src = text.replace(/<think>([\s\S]*?)(<\/think>|$)/g, (m, inner, end) => `<details class="think"${end ? '' : ' open'}><summary>Reasoning${end ? '' : '…'}</summary>\n\n${inner.trim()}\n\n</details>\n\n`);
+  const html = window.marked ? marked.parse(src) : mdLite(src);
+  return window.DOMPurify ? DOMPurify.sanitize(html, { ADD_ATTR: ['open'] }) : html;
+}
+
+const LANG_ALIASES = { python: 'py', py: 'py', python3: 'py', html: 'html', htm: 'html', xml: 'html', svg: 'html', xhtml: 'html', javascript: 'js', js: 'js', jsx: 'js', mjs: 'js', node: 'js', typescript: 'ts', ts: 'ts', css: 'css' };
+function detectLang(className, code) {
+  const m = /language-([\w+#-]+)/.exec(className || '');
+  const raw = (m ? m[1] : '').toLowerCase();
+  if (LANG_ALIASES[raw]) return { key: LANG_ALIASES[raw], raw };
+  if (raw && !['text', 'plaintext', 'txt'].includes(raw)) return { key: null, raw };
+  if (/<!doctype html|<html[\s>]|<body[\s>]|<div[\s>]|<canvas[\s>]/i.test(code)) return { key: 'html', raw: 'html' };
+  if (/^\s*(def |import |from \w+ import|print\()/m.test(code) && !/[;{}]\s*$/m.test(code)) return { key: 'py', raw: 'python' };
+  if (/\b(const|let|function|=>|document\.|console\.)/.test(code)) return { key: 'js', raw: 'javascript' };
+  return { key: null, raw: raw || 'text' };
+}
+const HLJS_LANG = { py: 'python', html: 'xml', js: 'javascript', css: 'css', ts: 'typescript' };
+
+function decorateCodeBlocks(root) {
+  root.querySelectorAll('pre > code').forEach((code) => {
+    const pre = code.parentElement;
+    if (pre.parentElement?.classList.contains('cb')) return;
+    const raw = code.textContent.replace(/\n$/, '');
+    const lang = detectLang(code.className, raw);
+    if (window.hljs) {
+      const hl = HLJS_LANG[lang.key] || lang.raw;
+      try {
+        if (hl && hljs.getLanguage(hl)) code.innerHTML = hljs.highlight(raw, { language: hl, ignoreIllegals: true }).value;
+        code.classList.add('hljs');
+      } catch { /* leave plain */ }
+    }
+    const runnable = ['py', 'html', 'js', 'css'].includes(lang.key);
+    const wrap = document.createElement('div');
+    wrap.className = 'cb';
+    wrap.innerHTML = `<div class="cb-head"><span class="cb-lang">${escapeHtml(lang.raw || lang.key || 'code')} · ${raw.split('\n').length} lines</span>
+      ${runnable ? `<button class="cb-btn run" data-cb="run" title="Send to the editor and execute">${ic('play')}Run in Sandbox</button>
+      <button class="cb-btn" data-cb="insert" title="Put in editor without running">${ic('file-input')}<span class="hidden sm:inline">Insert</span></button>` : ''}
+      <button class="cb-btn" data-cb="copy" title="Copy code">${ic('copy')}<span class="hidden sm:inline">Copy</span></button>
+      <button class="cb-btn" data-cb="download" title="Download as file">${ic('download')}</button></div>`;
+    pre.replaceWith(wrap);
+    wrap.append(pre);
+    wrap._code = raw;
+    wrap._lang = lang;
+  });
+}
+
+// ---------------------------------------------------------------------
+// 5. Conversations
+// ---------------------------------------------------------------------
+function newConversation(render = true) {
+  const conv = { id: uid(), title: 'New chat', created: Date.now(), updated: Date.now(), messages: [] };
+  S.convs.unshift(conv);
+  S.activeConv = conv.id;
+  S.editIndex = null;
+  if (render) { renderConvList(); renderMessages(); save('convs'); $('#input').focus({ preventScroll: true }); }
+  return conv;
+}
+const activeConv = () => S.convs.find(c => c.id === S.activeConv) || S.convs[0];
+
+function renderConvList() {
+  const q = $('#convSearch').value.trim().toLowerCase();
+  const list = $('#convList');
+  const items = S.convs.filter(c => !q || c.title.toLowerCase().includes(q) || c.messages.some(m => m.content.toLowerCase().includes(q)));
+  list.innerHTML = items.length ? '' : '<div class="text-[12px] text-zinc-500 p-3 text-center">No conversations found</div>';
+  for (const c of items) {
+    const el = document.createElement('div');
+    el.className = 'conv-item' + (c.id === S.activeConv ? ' active' : '');
+    el.innerHTML = `${ic('message-square')}<div class="flex-1 min-w-0"><div class="truncate">${escapeHtml(c.title)}</div><div class="text-[10.5px] text-zinc-600">${c.messages.length} msgs · ${fmtTime(c.updated)}</div></div>
+      <button class="icon-btn" data-rename title="Rename">${ic('pencil')}</button><button class="icon-btn" data-del title="Delete">${ic('trash-2')}</button>`;
+    el.onclick = (e) => {
+      if (e.target.closest('[data-del]')) return deleteConversation(c.id);
+      if (e.target.closest('[data-rename]')) return renameConversation(c.id);
+      S.activeConv = c.id; S.editIndex = null; updateEditChip();
+      renderConvList(); renderMessages(); save('convs');
+      $('#convDrawer').classList.remove('open');
+    };
+    list.append(el);
+  }
+  $('#convCount').textContent = S.convs.length + (S.convs.length === 1 ? ' conversation' : ' conversations');
+  $('#chatTitle').textContent = activeConv().title;
+  icons();
+}
+
+function renameConversation(id) {
+  const c = S.convs.find(x => x.id === id);
+  const t = prompt('Rename conversation', c.title);
+  if (t && t.trim()) { c.title = t.trim().slice(0, 80); renderConvList(); save('convs'); }
+}
+
+function deleteConversation(id) {
+  const c = S.convs.find(x => x.id === id);
+  if (c.messages.length && !confirm(`Delete "${c.title}"?`)) return;
+  S.convs = S.convs.filter(x => x.id !== id);
+  if (!S.convs.length) newConversation(false);
+  if (S.activeConv === id) S.activeConv = S.convs[0].id;
+  renderConvList(); renderMessages(); save('convs');
+}
+
+function convToMarkdown(c) {
+  return `# ${c.title}\n\n_Exported from OmniCore Studio · ${new Date().toLocaleString()}_\n\n` +
+    c.messages.map(m => `## ${m.role === 'user' ? 'You' : 'OmniCore'}${m.model ? ` (${m.model})` : ''}\n\n${m.content}\n`).join('\n');
+}
+
+// ---------------------------------------------------------------------
+// 6. Chat rendering
+// ---------------------------------------------------------------------
+const SUGGESTIONS = [
+  { t: 'Build a canvas game', d: 'Breakout with paddle, bricks & score', p: 'Build a complete Breakout game in a single HTML file using canvas: paddle (mouse + touch + arrow keys), ball physics, colorful bricks, score, lives and a restart screen.' },
+  { t: 'Plot data in Python', d: 'numpy + matplotlib chart', p: 'Write Python code that simulates 1,000 random walks with numpy and plots the mean path with a shaded ±1 std band using matplotlib (dark theme).' },
+  { t: 'Explain my code', d: 'Walk through the open file', p: '__EXPLAIN__' },
+  { t: 'Landing page', d: 'Responsive hero + pricing', p: 'Create a modern, responsive landing page for a fictional productivity app as a single HTML file with inline CSS: hero section, features grid, pricing cards with a monthly/yearly toggle, and a footer.' },
+];
+
+function renderMessages() {
+  const box = $('#messages');
+  const conv = activeConv();
+  $('#chatTitle').textContent = conv.title;
+  box.innerHTML = '';
+  if (!conv.messages.length) {
+    box.innerHTML = `<div class="max-w-[560px] mx-auto pt-6 sm:pt-12 px-1">
+      <div class="w-12 h-12 rounded-2xl flex items-center justify-center mb-4" style="background:linear-gradient(135deg,rgba(8,145,178,.35),rgba(124,58,237,.35))">${ic('atom', 'class="text-cyan-200" style="font-size:24px"')}</div>
+      <h2 class="text-[22px] font-semibold tracking-tight mb-1">What are we building?</h2>
+      <p class="text-zinc-400 text-[14px] mb-5">A private AI engineer on your device. Ask for apps, games, scripts or analysis — then run them instantly.</p>
+      <div id="engineHint" class="mb-4"></div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${SUGGESTIONS.map((s, i) => `<button class="suggest" data-suggest="${i}"><b>${escapeHtml(s.t)}</b>${escapeHtml(s.d)}</button>`).join('')}</div>
+    </div>`;
+    updateEngineHint();
+    icons();
+    return;
+  }
+  conv.messages.forEach((m, i) => box.append(createMessageEl(m, i)));
+  icons();
+  scrollChat(true);
+}
+
+function createMessageEl(m, idx) {
+  const el = document.createElement('div');
+  el.className = 'msg ' + (m.role === 'user' ? 'msg-user' : 'msg-ai');
+  el.dataset.idx = idx;
+  el.innerHTML = `<div class="avatar">${ic(m.role === 'user' ? 'user' : 'sparkles')}</div><div class="bubble"><div class="md"></div><div class="meta"></div></div>`;
+  updateMessageEl(el, m, false);
+  return el;
+}
+
+function updateMessageEl(el, m, streaming) {
+  const md = $('.md', el);
+  if (m.role === 'assistant' && !m.content && streaming) md.innerHTML = '<span class="text-zinc-500 typing">Thinking</span>';
+  else {
+    md.innerHTML = renderMarkdown(m.content || '');
+    decorateCodeBlocks(md);
+    if (streaming) md.classList.add('typing'); else md.classList.remove('typing');
+  }
+  const meta = $('.meta', el);
+  if (streaming) { meta.innerHTML = `<span class="text-cyan-400/80">${ic('loader-circle', 'class="animate-spin"')}</span><span>generating…</span>`; }
+  else {
+    const idx = +el.dataset.idx;
+    const conv = activeConv();
+    const isLastAI = m.role === 'assistant' && idx === conv.messages.length - 1;
+    const stats = m.stats ? ` · ${m.stats.tokens} tok · ${m.stats.tps} tok/s` : '';
+    meta.innerHTML = `<span>${fmtTime(m.ts)}${m.model ? ' · ' + escapeHtml(m.model) : ''}${stats}</span><span class="flex-1"></span>
+      <button class="icon-btn" data-msg="copy" title="Copy">${ic('copy')}</button>
+      ${m.role === 'user' ? `<button class="icon-btn" data-msg="edit" title="Edit & resend">${ic('pencil')}</button>` : ''}
+      ${isLastAI ? `<button class="icon-btn" data-msg="regen" title="Regenerate">${ic('refresh-cw')}</button>` : ''}
+      ${m.role === 'assistant' && 'speechSynthesis' in window ? `<button class="icon-btn" data-msg="speak" title="Read aloud">${ic('volume-2')}</button>` : ''}
+      <button class="icon-btn" data-msg="delete" title="Delete">${ic('trash-2')}</button>`;
+  }
+  icons();
+}
+
+function scrollChat(force) {
+  const box = $('#messages');
+  const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 140;
+  if (force || nearBottom) box.scrollTop = box.scrollHeight;
+}
+
+function updateEngineHint() {
+  const el = $('#engineHint');
+  if (!el) return;
+  let html = '';
+  if (AI.mode === 'ready') html = `<div class="chip on !cursor-default !h-auto !py-1.5">${ic('circle-check')}${escapeHtml(AI.modelLabel)} is ready on your GPU</div>`;
+  else if (AI.mode === 'demo') html = `<div class="text-[12.5px] text-violet-300/90 bg-violet-500/10 border border-violet-500/30 rounded-xl p-3 flex gap-2">${ic('flask-conical', 'class="mt-0.5"')}<span><b>Demo mode</b> — replies are simulated so you can try the workbench. ${GPU.ok ? 'Switch to Local AI with the chip below the input.' : escapeHtml(GPU.reason || '')}</span></div>`;
+  else if (AI.mode === 'loading') html = '';
+  else if (GPU.ok === false) html = `<div class="text-[12.5px] text-amber-200/90 bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 flex gap-2">${ic('triangle-alert', 'class="mt-0.5"')}<span>${escapeHtml(GPU.reason)}. Demo mode will be used automatically — the code sandbox and Python work fully.</span></div>`;
+  else html = `<button class="btn btn-primary" data-load-model>${ic('download')}Load ${escapeHtml(modelMeta(S.settings.model).label.split(' — ')[0])} <span class="opacity-70 font-normal">${AI.cached[S.settings.model] ? 'from cache' : modelMeta(S.settings.model).size}</span></button>`;
+  el.innerHTML = html;
+  icons();
+}
+
+// ---------------------------------------------------------------------
+// 7. WebGPU detection & AI engine (WebLLM)
+// ---------------------------------------------------------------------
+const GPU = { ok: null, f16: false, reason: '', info: {}, limits: {} };
+async function detectGPU() {
+  if (!('gpu' in navigator)) { Object.assign(GPU, { ok: false, reason: 'WebGPU is not available in this browser' }); return GPU; }
+  try {
+    const adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
+    if (!adapter) { Object.assign(GPU, { ok: false, reason: 'No compatible GPU adapter was found' }); return GPU; }
+    let info = adapter.info || {};
+    if (!adapter.info && adapter.requestAdapterInfo) { try { info = await adapter.requestAdapterInfo(); } catch { } }
+    Object.assign(GPU, { ok: true, f16: adapter.features.has('shader-f16'), info: { vendor: info.vendor, architecture: info.architecture, description: info.description }, limits: { maxBuffer: adapter.limits.maxBufferSize, maxStorage: adapter.limits.maxStorageBufferBindingSize } });
+  } catch (e) { Object.assign(GPU, { ok: false, reason: 'WebGPU initialisation failed: ' + e.message }); }
+  return GPU;
+}
+
+const AI = { webllm: null, engine: null, worker: null, mode: 'idle', modelId: null, modelLabel: '', loadingPromise: null, generating: false, stopRequested: false, cached: {}, available: null };
+const modelMeta = (base) => MODELS.find(m => m.base === base) || MODELS[0];
+const modelId = (base) => `${base}-${GPU.f16 ? 'q4f16_1' : 'q4f32_1'}-MLC`;
+
+async function importWebLLM() {
+  if (AI.webllm) return AI.webllm;
+  AI.webllm = await import(WEBLLM_URL);
+  try { AI.available = new Set(AI.webllm.prebuiltAppConfig.model_list.map(m => m.model_id)); } catch { }
+  return AI.webllm;
+}
+
+async function refreshCacheInfo() {
+  try {
+    const est = await navigator.storage?.estimate?.();
+    if (est) {
+      $('#cacheBadgeText').textContent = fmtBytes(est.usage) + ' cached';
+      $('#storageInfo').innerHTML = `Storage used: <b class="text-zinc-200">${fmtBytes(est.usage)}</b> of ${fmtBytes(est.quota)} available${navigator.storage.persisted ? ` · persistent: <b class="text-zinc-200">${(await navigator.storage.persisted()) ? 'yes' : 'no'}</b>` : ''}`;
+    }
+  } catch { }
+  if (!AI.webllm || !GPU.ok) return;
+  await Promise.all(MODELS.map(async (m) => {
+    try { AI.cached[m.base] = await AI.webllm.hasModelInCache(modelId(m.base)); } catch { AI.cached[m.base] = false; }
+  }));
+  populateModelSelects();
+  updateEngineHint();
+}
+
+function populateModelSelects() {
+  for (const sel of [$('#modelSelect'), $('#setModelSelect')]) {
+    const groups = {};
+    MODELS.forEach(m => {
+      if (AI.available && GPU.ok && !AI.available.has(modelId(m.base))) return;
+      (groups[m.tier] ||= []).push(m);
+    });
+    sel.innerHTML = Object.entries(groups).map(([tier, ms]) => `<optgroup label="${escapeHtml(tier)}">${ms.map(m => `<option value="${m.base}">${AI.cached[m.base] ? '● ' : ''}${escapeHtml(m.label)} (${m.size})</option>`).join('')}</optgroup>`).join('');
+    sel.value = S.settings.model;
+    if (!sel.value) { sel.value = DEFAULT_MODEL; }
+  }
+  updateModelInfo();
+  updateLoadButtons();
+}
+
+function updateModelInfo() {
+  const m = modelMeta(S.settings.model);
+  let vram = '';
+  try { const rec = AI.webllm?.prebuiltAppConfig.model_list.find(x => x.model_id === modelId(m.base)); if (rec?.vram_required_MB) vram = ` · needs ~${fmtBytes(rec.vram_required_MB * 1024 * 1024)} GPU memory`; } catch { }
+  $('#modelInfo').innerHTML = `<span class="font-mono">${escapeHtml(modelId(m.base))}</span><br>Download ${m.size}${vram} · ${AI.cached[m.base] ? '<span class="text-emerald-400">cached for offline use</span>' : 'not cached yet'}`;
+}
+
+function updateLoadButtons() {
+  const sel = S.settings.model;
+  const loadedBase = AI.modelId ? MODELS.find(m => modelId(m.base) === AI.modelId)?.base : null;
+  for (const b of [$('#loadBtn'), $('#setLoadBtn')]) {
+    let label = 'Load', iconName = 'download', disabled = false;
+    if (AI.mode === 'loading') { label = 'Loading…'; iconName = 'loader-circle'; disabled = true; }
+    else if (AI.mode === 'ready' && loadedBase === sel) { label = 'Loaded'; iconName = 'circle-check'; disabled = true; }
+    else if (AI.mode === 'ready') { label = 'Switch'; iconName = 'replace'; }
+    else if (AI.cached[sel]) { label = 'Load'; iconName = 'hard-drive-download'; }
+    b.disabled = disabled || GPU.ok === false;
+    b.innerHTML = `${ic(iconName, iconName === 'loader-circle' ? 'class="animate-spin"' : '')}<span>${label}</span>`;
+  }
+  icons();
+}
+
+function setStatus(state, text) {
+  $('#statusDot').className = 'status-dot ' + state;
+  $('#statusText').textContent = text;
+  $('#chipModeText').textContent = AI.mode === 'demo' ? 'Demo mode' : 'Local AI';
+  $('#chipMode').classList.toggle('on', AI.mode === 'demo');
+  updateLoadButtons();
+  updateEngineHint();
+}
+
+function showProgress(show) { $('#progressWrap').classList.toggle('show', show); }
+
+function createWorkerEngineWorker() {
+  const src = `import { WebWorkerMLCEngineHandler } from ${JSON.stringify(WEBLLM_URL)};
+const handler = new WebWorkerMLCEngineHandler();
+self.onmessage = (msg) => handler.onmessage(msg);`;
+  return new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })), { type: 'module' });
+}
+
+async function loadModel(base = S.settings.model) {
+  if (AI.loadingPromise) return AI.loadingPromise;
+  if (GPU.ok === null) await detectGPU();
+  if (!GPU.ok) { enableDemo(GPU.reason); return false; }
+  const id = modelId(base);
+  const meta = modelMeta(base);
+  AI.mode = 'loading';
+  setStatus('loading', 'Loading ' + meta.label.split(' — ')[0] + '…');
+  showProgress(true);
+  $('#progressTitle').textContent = 'Loading ' + meta.label;
+  $('#progressBar').style.width = '0%';
+  $('#progressPct').textContent = '0%';
+  $('#progressText').textContent = 'Fetching WebLLM runtime…';
+  const startedAt = performance.now();
+  const cancelled = new Promise((_, reject) => { AI.cancelReject = () => reject(new Error('cancelled')); });
+  cancelled.catch(() => { });
+  const orCancel = (p) => Promise.race([p, cancelled]);
+
+  AI.loadingPromise = (async () => {
+    try {
+      const webllm = await importWebLLM();
+      if (AI.available && !AI.available.has(id)) throw new Error(`Model ${id} is not in this WebLLM build`);
+      const cached = await webllm.hasModelInCache(id).catch(() => false);
+      const tag = $('#progressCacheTag');
+      tag.classList.remove('hidden');
+      tag.innerHTML = cached ? `${ic('hard-drive')}from cache` : `${ic('cloud-download')}downloading ${meta.size}`;
+      icons();
+      const initProgressCallback = (r) => {
+        const pct = Math.round((r.progress || 0) * 100);
+        $('#progressBar').style.width = pct + '%';
+        $('#progressPct').textContent = pct + '%';
+        const secs = ((performance.now() - startedAt) / 1000).toFixed(0);
+        $('#progressText').textContent = `${r.text || ''}`.replace(/\s+/g, ' ') + (r.text?.includes('elapsed') ? '' : ` · ${secs}s`);
+        setStatus('loading', `${meta.label.split(' — ')[0]} ${pct}%`);
+      };
+      const appConfig = webllm.prebuiltAppConfig;
+      if (AI.engine && AI.modelId !== id) {
+        await orCancel(AI.engine.reload(id));
+      } else if (!AI.engine) {
+        let engine = null;
+        if (S.settings.useWorker && 'Worker' in window) {
+          try {
+            AI.worker = createWorkerEngineWorker();
+            engine = await orCancel(webllm.CreateWebWorkerMLCEngine(AI.worker, id, { initProgressCallback, appConfig }));
+          } catch (e) {
+            console.warn('Worker engine failed, falling back to main thread', e);
+            try { AI.worker?.terminate(); } catch { }
+            AI.worker = null;
+            if (AI.cancelled) throw e;
+          }
+        }
+        if (!engine) engine = await orCancel(webllm.CreateMLCEngine(id, { initProgressCallback, appConfig }));
+        AI.engine = engine;
+      }
+      if (AI.engine.setInitProgressCallback) AI.engine.setInitProgressCallback(initProgressCallback);
+      AI.modelId = id;
+      AI.modelLabel = meta.label.split(' — ')[0];
+      AI.mode = 'ready';
+      S.settings.demo = false; save('settings');
+      setStatus('ready', AI.modelLabel);
+      $('#progressBar').style.width = '100%';
+      toast(`${AI.modelLabel} loaded in ${((performance.now() - startedAt) / 1000).toFixed(1)}s — running on your GPU`, 'ok');
+      try { await navigator.storage?.persist?.(); } catch { }
+      AI.cached[base] = true;
+      refreshCacheInfo();
+      return true;
+    } catch (e) {
+      console.error(e);
+      AI.mode = AI.engine && AI.modelId ? 'ready' : 'idle';
+      if (AI.cancelled) { toast('Model loading cancelled', 'warn'); setStatus(AI.mode === 'ready' ? 'ready' : '', AI.mode === 'ready' ? AI.modelLabel : 'No model loaded'); }
+      else {
+        const msg = String(e?.message || e);
+        const oom = /memory|OOM|allocation|device lost|Device was lost/i.test(msg);
+        setStatus(AI.mode === 'ready' ? 'ready' : 'error', AI.mode === 'ready' ? AI.modelLabel : 'Load failed');
+        toast(oom ? 'Not enough GPU memory for this model — try a smaller one.' : 'Model failed to load: ' + msg.slice(0, 160), 'err', { action: { label: 'Use demo', run: () => enableDemo('Model failed to load') }, duration: 9000 });
+      }
+      return false;
+    } finally {
+      AI.loadingPromise = null; AI.cancelled = false; AI.cancelReject = null;
+      setTimeout(() => showProgress(false), 600);
+    }
+  })();
+  return AI.loadingPromise;
+}
+
+function cancelLoading() {
+  if (AI.mode !== 'loading') return showProgress(false);
+  AI.cancelled = true;
+  // Terminating the worker frees GPU memory immediately; a main-thread engine is simply discarded.
+  if (AI.worker) { try { AI.worker.terminate(); } catch { } AI.worker = null; }
+  AI.engine = null; AI.modelId = null;
+  AI.cancelReject?.();
+}
+
+function enableDemo(reason) {
+  AI.mode = 'demo';
+  S.settings.demo = true; save('settings');
+  $('#setDemo').checked = true;
+  setStatus('demo', 'Demo mode');
+  if (reason) toast(`Demo mode enabled${reason ? ' — ' + reason : ''}`, 'info');
+}
+
+function disableDemo() {
+  S.settings.demo = false; save('settings');
+  $('#setDemo').checked = false;
+  if (AI.engine && AI.modelId) { AI.mode = 'ready'; setStatus('ready', AI.modelLabel); }
+  else { AI.mode = 'idle'; setStatus('', 'No model loaded'); }
+}
+
+async function ensureEngine() {
+  if (AI.mode === 'ready' || AI.mode === 'demo') return true;
+  if (AI.mode === 'loading') { toast('Waiting for the model to finish loading…'); return await AI.loadingPromise; }
+  if (GPU.ok === null) await detectGPU();
+  if (!GPU.ok) { enableDemo(GPU.reason); return true; }
+  return await loadModel();
+}
+
+// ---------------------------------------------------------------------
+// 8. Demo engine (simulated streaming replies)
+// ---------------------------------------------------------------------
+const Demo = {
+  reply(text) {
+    const t = text.toLowerCase();
+    const F = FENCE;
+    const codeInPrompt = /```(\w*)\n([\s\S]*?)```/.exec(text);
+    if (/(fix|error|bug|traceback|exception|broken|doesn'?t work)/.test(t)) {
+      return ['**Demo mode — simulated debugging walkthrough.**', '', 'Here is how I would approach this:', '',
+        '1. **Read the last line of the traceback** — it names the exception type and the exact line.',
+        '2. **Check the inputs** at that line: print their types and values right before it.',
+        '3. **Reproduce minimally**, then fix the root cause (not just the symptom).', '',
+        codeInPrompt ? `Your snippet has **${codeInPrompt[2].split('\n').length} lines** of ${codeInPrompt[1] || 'code'}. A safe pattern to isolate the failure:` : 'A safe pattern to isolate the failure:', '',
+        F + 'python', 'import traceback', '', 'def risky(value):', '    return 10 / value', '', 'for v in [5, 2, 0, "3"]:', '    try:', '        print(v, "->", risky(v))', '    except Exception as exc:', '        print(f"{v!r} failed: {type(exc).__name__}: {exc}")', F, '',
+        '> Load a real model (WebGPU) for an actual analysis of your code.'].join('\n');
+    }
+    if (/(explain|what does|walk me through|review)/.test(t)) {
+      const lines = codeInPrompt ? codeInPrompt[2].split('\n') : [];
+      const fns = lines.filter(l => /\b(function|def|class|const \w+ = \(|=>)/.test(l)).slice(0, 6).map(l => '- `' + l.trim().slice(0, 70) + '`');
+      return ['**Demo mode — simulated explanation.**', '', codeInPrompt ? `This ${codeInPrompt[1] || 'code'} file is **${lines.length} lines** long. Key definitions I can spot:` : 'Paste or attach some code and I will walk through it.', '',
+        ...(fns.length ? fns : ['- (no functions detected)']), '',
+        'In a real session, the local model would describe the control flow, data structures, edge cases and suggest improvements.'].join('\n');
+    }
+    if (/(python|plot|chart|graph|numpy|pandas|data|statistic|matplotlib|analy)/.test(t)) {
+      return ['**Demo mode** — here is a Python example you can run right now. It uses numpy and matplotlib inside Pyodide:', '',
+        F + 'python', 'import numpy as np', 'import matplotlib.pyplot as plt', '', 'rng = np.random.default_rng(0)', 'walks = rng.normal(0, 1, size=(1000, 200)).cumsum(axis=1)', 'mean, std = walks.mean(axis=0), walks.std(axis=0)', 'steps = np.arange(walks.shape[1])', '',
+        'print(f"Simulated {walks.shape[0]} walks of {walks.shape[1]} steps")', 'print(f"Final mean: {mean[-1]:.3f}  final std: {std[-1]:.3f}  (theory: {np.sqrt(200):.3f})")', '',
+        'plt.figure(figsize=(8, 3.5))', 'plt.fill_between(steps, mean - std, mean + std, color="#22d3ee", alpha=0.25, label="±1 std")', 'plt.plot(steps, mean, color="#a78bfa", lw=2, label="mean")', 'plt.title("1,000 random walks")', 'plt.legend()', 'plt.tight_layout()', 'plt.show()', F, '',
+        'Press **Run in Sandbox** — the chart appears in the Python terminal.'].join('\n');
+    }
+    if (/(game|canvas|breakout|pong|snake|animation|physics)/.test(t)) {
+      return ['**Demo mode** — a compact Breakout game in one HTML file:', '', F + 'html',
+        '<!DOCTYPE html>', '<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">',
+        '<style>body{margin:0;background:#0b1020;display:grid;place-items:center;height:100vh;touch-action:none}canvas{background:#111827;border-radius:12px;max-width:100vw}</style></head>',
+        '<body><canvas id="c" width="480" height="360"></canvas>', '<script>',
+        'const c = document.getElementById("c"), x = c.getContext("2d");',
+        'let ball, paddle = { x: 200, w: 80 }, bricks, score, lives;',
+        'function reset() {', '  ball = { x: 240, y: 300, dx: 3, dy: -3 }; score = 0; lives = 3;', '  bricks = [];',
+        '  for (let r = 0; r < 5; r++) for (let i = 0; i < 8; i++) bricks.push({ x: 12 + i * 58, y: 30 + r * 22, alive: true, hue: r * 40 + 180 });', '}',
+        'function loop() {', '  x.clearRect(0, 0, c.width, c.height);',
+        '  bricks.forEach(b => { if (!b.alive) return; x.fillStyle = "hsl(" + b.hue + ",80%,60%)"; x.fillRect(b.x, b.y, 50, 16);',
+        '    if (ball.x > b.x && ball.x < b.x + 50 && ball.y > b.y && ball.y < b.y + 16) { b.alive = false; ball.dy *= -1; score += 10; } });',
+        '  ball.x += ball.dx; ball.y += ball.dy;', '  if (ball.x < 6 || ball.x > c.width - 6) ball.dx *= -1;', '  if (ball.y < 6) ball.dy *= -1;',
+        '  if (ball.y > 330 && ball.x > paddle.x && ball.x < paddle.x + paddle.w) { ball.dy = -Math.abs(ball.dy); ball.dx += (ball.x - paddle.x - paddle.w / 2) * 0.05; }',
+        '  if (ball.y > c.height) { lives--; ball = { x: 240, y: 300, dx: 3, dy: -3 }; if (!lives) { console.log("Game over, score " + score); reset(); } }',
+        '  if (bricks.every(b => !b.alive)) { console.log("You win!"); reset(); }',
+        '  x.fillStyle = "#22d3ee"; x.fillRect(paddle.x, 336, paddle.w, 10);', '  x.beginPath(); x.arc(ball.x, ball.y, 6, 0, 7); x.fillStyle = "#f472b6"; x.fill();',
+        '  x.fillStyle = "#e5e7eb"; x.font = "14px monospace"; x.fillText("Score " + score + "   Lives " + lives, 12, 18);', '  requestAnimationFrame(loop);', '}',
+        'function move(clientX) { const r = c.getBoundingClientRect(); paddle.x = (clientX - r.left) * (c.width / r.width) - paddle.w / 2; }',
+        'c.addEventListener("pointermove", e => move(e.clientX));', 'c.addEventListener("touchmove", e => move(e.touches[0].clientX), { passive: true });',
+        'addEventListener("keydown", e => { if (e.key === "ArrowLeft") paddle.x -= 30; if (e.key === "ArrowRight") paddle.x += 30; });',
+        'reset(); loop();', '<\/script></body></html>', F, '',
+        'Tap **Run in Sandbox** to play. Move with mouse, touch or arrow keys.'].join('\n');
+    }
+    if (/(html|page|website|landing|css|button|ui|form|component|layout|card)/.test(t)) {
+      return ['**Demo mode** — a responsive pricing card component:', '', F + 'html',
+        '<!DOCTYPE html>', '<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">', '<style>',
+        '  body { margin: 0; min-height: 100vh; display: grid; place-items: center; font-family: system-ui, sans-serif; background: linear-gradient(135deg, #0f172a, #1e1b4b); color: #e2e8f0; }',
+        '  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; width: min(760px, 92vw); }',
+        '  .card { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12); border-radius: 18px; padding: 24px; transition: transform .2s; }',
+        '  .card:hover { transform: translateY(-4px); }', '  .card.pro { border-color: #22d3ee; box-shadow: 0 0 40px rgba(34,211,238,.2); }',
+        '  .price { font-size: 36px; font-weight: 700; margin: 8px 0 16px; }', '  button { width: 100%; padding: 12px; border: 0; border-radius: 10px; font-weight: 600; cursor: pointer; background: #22d3ee; color: #0f172a; }',
+        '</style></head><body>', '<div class="grid">',
+        '  <div class="card"><h3>Starter</h3><div class="price">$0</div><p>For side projects.</p><button>Start free</button></div>',
+        '  <div class="card pro"><h3>Pro</h3><div class="price">$12</div><p>Everything, unlimited.</p><button>Go Pro</button></div>',
+        '  <div class="card"><h3>Team</h3><div class="price">$39</div><p>Collaborate together.</p><button>Contact us</button></div>',
+        '</div>', '<script>document.querySelectorAll("button").forEach(b => b.onclick = () => console.log("Selected plan:", b.closest(".card").querySelector("h3").textContent));<\/script>',
+        '</body></html>', F].join('\n');
+    }
+    if (/(javascript|\bjs\b|function|array|algorithm|sort)/.test(t)) {
+      return ['**Demo mode** — a JavaScript snippet (runs in the sandbox, output in the Console tab):', '', F + 'javascript',
+        'const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };',
+        'const groupBy = (arr, key) => arr.reduce((acc, x) => ((acc[x[key]] ||= []).push(x), acc), {});', '',
+        'const people = [{ name: "Ada", team: "core" }, { name: "Linus", team: "kernel" }, { name: "Grace", team: "core" }];',
+        'console.table(groupBy(people, "team"));', 'console.log("Sorted:", [5, 3, 9, 1].toSorted((a, b) => a - b));',
+        'document.body.innerHTML = "<h2 style=\\"font-family:sans-serif\\">Open the Console tab ↓</h2>";', F].join('\n');
+    }
+    return ['👋 **Demo mode is active** — responses are simulated so you can explore OmniCore Studio without WebGPU or a model download.', '',
+      'Try asking me to:', '- **"Build a canvas game"** → a playable Breakout game', '- **"Plot random walks in Python"** → numpy + matplotlib chart', '- **"Make a pricing page"** → responsive HTML/CSS', '- **"Explain my code"** with *Code context* enabled', '',
+      'Every code block has **Run in Sandbox**, **Insert**, **Copy** and **Download** buttons.', '',
+      GPU.ok ? '> Your browser supports WebGPU — switch to **Local AI** to run a real model offline.' : '> ' + (GPU.reason || 'WebGPU unavailable') + '. Use Chrome/Edge 113+ or Safari 26+ for real local AI.'].join('\n');
+  },
+  async stream(history, onDelta) {
+    const last = [...history].reverse().find(m => m.role === 'user');
+    const text = this.reply(last ? last.content : '');
+    await sleep(350);
+    const tokens = text.match(/\s+|[^\s]+/g) || [];
+    for (let i = 0; i < tokens.length; i++) {
+      if (AI.stopRequested) break;
+      onDelta(tokens[i]);
+      if (i % 3 === 0) await sleep(tokens[i].includes('\n') ? 12 : 18);
+    }
+    return { completion_tokens: Math.round(text.length / 4) };
+  },
+};
+
+// ---------------------------------------------------------------------
+// 9. Chat sending & generation
+// ---------------------------------------------------------------------
+function stripThink(s) { return s.replace(/<think>[\s\S]*?(<\/think>|$)/g, '').trim(); }
+
+function buildHistory(conv, uptoExclusive) {
+  const msgs = conv.messages.slice(0, uptoExclusive).filter(m => m.content && !m.error);
+  const recent = msgs.slice(-Math.max(2, S.settings.contextMsgs));
+  if (recent[0]?.role === 'assistant') recent.shift();
+  return [{ role: 'system', content: S.settings.systemPrompt || DEFAULT_SYSTEM_PROMPT }, ...recent.map(m => ({ role: m.role, content: m.role === 'assistant' ? stripThink(m.content) : (m.apiContent || m.content) }))];
+}
+
+function editorContextBlock() {
+  const f = FILES[S.activeFile];
+  const code = S.files[S.activeFile];
+  const lang = { html: 'html', css: 'css', js: 'javascript', py: 'python' }[S.activeFile];
+  return `\n\n[Current editor file: ${f.name}]\n${FENCE}${lang}\n${code.slice(0, 12000)}\n${FENCE}`;
+}
+
+async function sendMessage(text, { apiContent } = {}) {
+  text = (text || '').trim();
+  if (!text || AI.generating) return;
+  const conv = activeConv();
+  if (S.editIndex !== null) { conv.messages.splice(S.editIndex); S.editIndex = null; updateEditChip(); }
+  const msg = { role: 'user', content: text, ts: Date.now() };
+  if (apiContent) msg.apiContent = apiContent;
+  else if (S.settings.includeEditor) msg.apiContent = text + editorContextBlock();
+  conv.messages.push(msg);
+  if (conv.title === 'New chat') conv.title = text.replace(/\s+/g, ' ').slice(0, 52) + (text.length > 52 ? '…' : '');
+  conv.updated = Date.now();
+  $('#input').value = ''; autoGrow(); updateTokenCount();
+  renderMessages(); renderConvList(); save('convs');
+  await generateReply(conv);
+}
+
+async function generateReply(conv) {
+  const ok = await ensureEngine();
+  if (!ok) { toast('No AI engine available. Load a model or enable demo mode.', 'warn'); return; }
+  const history = buildHistory(conv);
+  const msg = { role: 'assistant', content: '', ts: Date.now(), model: AI.mode === 'demo' ? 'demo' : AI.modelLabel };
+  conv.messages.push(msg);
+  const box = $('#messages');
+  const el = createMessageEl(msg, conv.messages.length - 1);
+  box.append(el);
+  updateMessageEl(el, msg, true);
+  scrollChat(true);
+
+  AI.generating = true; AI.stopRequested = false; setGenerating(true);
+  const t0 = performance.now(); let usage = null; let renderTimer = null; let firstTokenAt = 0;
+  const flush = () => { renderTimer = null; updateMessageEl(el, msg, true); scrollChat(false); };
+  const onDelta = (d) => {
+    if (!firstTokenAt) firstTokenAt = performance.now();
+    msg.content += d;
+    if (!renderTimer) renderTimer = setTimeout(flush, 60);
+  };
+  try {
+    if (AI.mode === 'demo') usage = await Demo.stream(history, onDelta);
+    else {
+      const stream = await AI.engine.chat.completions.create({
+        messages: history, stream: true, stream_options: { include_usage: true },
+        temperature: +S.settings.temperature, top_p: +S.settings.topP, max_tokens: +S.settings.maxTokens,
+      });
+      for await (const chunk of stream) {
+        const d = chunk.choices?.[0]?.delta?.content;
+        if (d) onDelta(d);
+        if (chunk.usage) usage = chunk.usage;
+        if (AI.stopRequested) break;
+      }
+    }
+  } catch (e) {
+    console.error(e);
+    const m = String(e?.message || e);
+    msg.content += `${msg.content ? '\n\n' : ''}> ⚠️ **Generation error:** ${m.slice(0, 300)}`;
+    if (/context window|exceed|prompt tokens/i.test(m)) msg.content += '\n>\n> Tip: lower *History messages sent* in Settings, or start a new chat.';
+    if (/device.*lost|disposed/i.test(m)) { AI.engine = null; AI.modelId = null; AI.mode = 'idle'; setStatus('error', 'GPU device lost — reload model'); }
+  } finally {
+    clearTimeout(renderTimer);
+    AI.generating = false; setGenerating(false);
+    const secs = Math.max(0.001, (performance.now() - (firstTokenAt || t0)) / 1000);
+    const tokens = usage?.completion_tokens ?? Math.round(msg.content.length / 4);
+    msg.stats = { tokens, tps: (tokens / secs).toFixed(1) };
+    if (AI.stopRequested) msg.content += msg.content ? '\n\n_[stopped]_' : '_[stopped]_';
+    if (!msg.content) msg.content = '_(empty response)_';
+    conv.updated = Date.now();
+    updateMessageEl(el, msg, false);
+    save('convs'); renderConvList();
+    if (S.mobilePanel !== 'chat' && MOBILE_MQ.matches) $('#navDot-chat').classList.add('show');
+    if (S.settings.autoRunAI && !AI.stopRequested) autoRunFromMessage(el);
+    AI.stopRequested = false;
+  }
+}
+
+function autoRunFromMessage(el) {
+  const blocks = $$('.cb', el).filter(b => ['html', 'py', 'js'].includes(b._lang?.key));
+  if (!blocks.length) return;
+  const prefer = blocks.find(b => b._lang.key === 'html') || blocks[blocks.length - 1];
+  runFromChat(prefer._code, prefer._lang.key);
+}
+
+function stopGeneration() {
+  if (!AI.generating) return;
+  AI.stopRequested = true;
+  try { AI.engine?.interruptGenerate?.(); } catch { }
+}
+
+function setGenerating(on) {
+  $('#btnStop').classList.toggle('hidden', !on);
+  $('#btnSend').classList.toggle('hidden', on);
+}
+
+function regenerate() {
+  const conv = activeConv();
+  if (AI.generating) return;
+  if (conv.messages.at(-1)?.role === 'assistant') conv.messages.pop();
+  renderMessages();
+  generateReply(conv);
+}
+
+function updateEditChip() {
+  $('#editChip').classList.toggle('hidden', S.editIndex === null);
+  icons();
+}
+
+function autoGrow() {
+  const ta = $('#input');
+  ta.style.height = 'auto';
+  ta.style.height = Math.min(200, ta.scrollHeight) + 'px';
+}
+function updateTokenCount() {
+  const n = $('#input').value.length;
+  $('#tokenCount').textContent = n ? `~${Math.ceil(n / 4)} tokens` : '';
+}
+
+function askAI(prompt, apiContent) {
+  setMobilePanel('chat');
+  if (AI.generating) { toast('Please wait for the current reply to finish.', 'warn'); return; }
+  sendMessage(prompt, { apiContent });
+}
+
+function aiAction(kind) {
+  const f = FILES[S.activeFile];
+  const lang = { html: 'html', css: 'css', js: 'javascript', py: 'python' }[S.activeFile];
+  const code = S.files[S.activeFile];
+  if (!code.trim()) return toast('The current file is empty.', 'warn');
+  const prompts = {
+    explain: `Explain what ${f.name} does, step by step. Highlight anything surprising or risky.`,
+    bugs: `Review ${f.name} for bugs, edge cases and errors. Explain each issue, then give the complete corrected file.`,
+    comment: `Add clear comments and docstrings to ${f.name} without changing behaviour. Return the complete file.`,
+    optimize: `Refactor and optimize ${f.name} for readability and performance. Explain the key changes, then return the complete file.`,
+    tests: `Write thorough tests for ${f.name}. ${S.activeFile === 'py' ? 'Use plain assert statements in a runnable Python script (no pytest needed) and print a summary.' : 'Write them as plain JavaScript using console.assert and print a summary to the console.'}`,
+    convert: S.activeFile === 'py' ? `Convert ${f.name} into equivalent modern JavaScript that runs in the browser and logs the same output to the console.` : `Convert the logic of ${f.name} into equivalent idiomatic Python 3 that prints the same results.`,
+  };
+  const visible = prompts[kind] + `\n\n${FENCE}${lang}\n${code.length > 4000 ? code.slice(0, 4000) + '\n…' : code}\n${FENCE}`;
+  const full = prompts[kind] + `\n\n${FENCE}${lang}\n${code.slice(0, 12000)}\n${FENCE}`;
+  askAI(visible, full);
+}
+
+// ---------------------------------------------------------------------
+// 10. Code editor (CodeMirror 5 with textarea fallback)
+// ---------------------------------------------------------------------
+const Editor = {
+  cm: null, docs: {}, ta: null,
+  init() {
+    const host = $('#editorHost');
+    if (window.CodeMirror) {
+      this.cm = CodeMirror(host, {
+        theme: 'omni', lineNumbers: true, matchBrackets: true, autoCloseBrackets: true, autoCloseTags: true, styleActiveLine: true,
+        lineWrapping: S.settings.wrap, tabSize: 2, indentUnit: 2, indentWithTabs: false, inputStyle: IS_TOUCH ? 'contenteditable' : 'textarea',
+        spellcheck: false, autocorrect: false, autocapitalize: false, viewportMargin: 50,
+        extraKeys: {
+          'Ctrl-Enter': () => runCurrent(), 'Cmd-Enter': () => runCurrent(),
+          'Ctrl-S': () => saveSnapshot('Manual save'), 'Cmd-S': () => saveSnapshot('Manual save'),
+          'Ctrl-/': 'toggleComment', 'Cmd-/': 'toggleComment',
+          Tab: (cm) => cm.somethingSelected() ? cm.indentSelection('add') : cm.replaceSelection(' '.repeat(cm.getOption('indentUnit')), 'end'),
+          'Shift-Tab': (cm) => cm.indentSelection('subtract'),
+        },
+      });
+      for (const k of Object.keys(FILES)) {
+        this.docs[k] = CodeMirror.Doc(S.files[k], FILES[k].mode);
+        this.docs[k].on('change', (doc) => onEditorChange(k, doc.getValue()));
+      }
+      this.cm.on('cursorActivity', () => { const c = this.cm.getCursor(); $('#cursorPos').textContent = `Ln ${c.line + 1}, Col ${c.ch + 1}`; });
+      this.cm.on('focus', () => showKeybar(true));
+      this.cm.on('blur', () => setTimeout(() => { if (!document.activeElement?.closest('#keybar')) showKeybar(false); }, 150));
+    } else {
+      this.ta = Object.assign(document.createElement('textarea'), { className: 'fallback-editor scroll-thin', spellcheck: false });
+      this.ta.addEventListener('input', () => onEditorChange(S.activeFile, this.ta.value));
+      this.ta.addEventListener('keydown', (e) => {
+        if (e.key === 'Tab') { e.preventDefault(); const s = this.ta.selectionStart; this.ta.setRangeText('  ', s, this.ta.selectionEnd, 'end'); onEditorChange(S.activeFile, this.ta.value); }
+      });
+      this.ta.addEventListener('focus', () => showKeybar(true));
+      this.ta.addEventListener('blur', () => setTimeout(() => { if (!document.activeElement?.closest('#keybar')) showKeybar(false); }, 150));
+      host.append(this.ta);
+    }
+    this.setFontSize(S.settings.fontSize);
+  },
+  show(key) {
+    if (this.cm) {
+      this.cm.swapDoc(this.docs[key]);
+      const u = key === 'py' ? 4 : 2;
+      this.cm.setOption('indentUnit', u); this.cm.setOption('tabSize', u);
+      setTimeout(() => this.cm.refresh(), 0);
+    } else this.ta.value = S.files[key];
+  },
+  setValue(key, value) {
+    S.files[key] = value;
+    if (this.cm) { this.docs[key].setValue(value); }
+    else if (key === S.activeFile) this.ta.value = value;
+  },
+  insertAtCursor(text) {
+    if (this.cm) { this.cm.replaceSelection(text); this.cm.focus(); }
+    else { const s = this.ta.selectionStart; this.ta.setRangeText(text, s, this.ta.selectionEnd, 'end'); this.ta.focus(); onEditorChange(S.activeFile, this.ta.value); }
+  },
+  focus() { (this.cm || this.ta).focus(); },
+  refresh() { this.cm?.refresh(); },
+  setWrap(on) { this.cm?.setOption('lineWrapping', on); if (this.ta) this.ta.style.whiteSpace = on ? 'pre-wrap' : 'pre'; },
+  setFontSize(px) { document.documentElement.style.setProperty('--editor-font', px + 'px'); this.cm?.refresh(); },
+  format() {
+    if (!this.cm) return;
+    const cm = this.cm;
+    cm.operation(() => { for (let i = 0; i < cm.lineCount(); i++) cm.indentLine(i, 'smart'); });
+    toast('Re-indented ' + FILES[S.activeFile].name, 'ok', { duration: 1500 });
+  },
+};
+
+const previewSoon = debounce(() => refreshPreview(), 700);
+function onEditorChange(key, value) {
+  S.files[key] = value;
+  save('files');
+  if (S.settings.autoPreview && key !== 'py') previewSoon();
+}
+
+function setActiveFile(key) {
+  S.activeFile = key;
+  $$('#fileTabs .tab').forEach(t => t.classList.toggle('active', t.dataset.file === key));
+  $('#langLabel').textContent = FILES[key].label;
+  Editor.show(key);
+  save('files', 50);
+}
+
+const KEYBAR_KEYS = ['⇥', '{', '}', '(', ')', '[', ']', '<', '>', '=', ';', ':', '"', "'", '`', '/', '#', '.', ',', '+', '-', '*', '!', '&', '|', '_', '$', '←', '→'];
+function initKeybar() {
+  const bar = $('#keybar');
+  bar.innerHTML = KEYBAR_KEYS.map(k => `<button type="button" data-k="${escapeHtml(k)}">${escapeHtml(k)}</button>`).join('');
+  bar.addEventListener('pointerdown', (e) => e.preventDefault()); // keep editor focus
+  bar.addEventListener('click', (e) => {
+    const k = e.target.closest('[data-k]')?.dataset.k;
+    if (!k) return;
+    if (Editor.cm) {
+      const cm = Editor.cm;
+      if (k === '⇥') cm.replaceSelection(' '.repeat(cm.getOption('indentUnit')));
+      else if (k === '←') cm.execCommand('goCharLeft');
+      else if (k === '→') cm.execCommand('goCharRight');
+      else cm.replaceSelection(k);
+      cm.focus();
+    } else Editor.insertAtCursor(k === '⇥' ? '  ' : k);
+  });
+}
+function showKeybar(on) { if (IS_TOUCH) $('#keybar').classList.toggle('show', on); }
+
+// ---------------------------------------------------------------------
+// 11. Web sandbox (iframe preview + console capture)
+// ---------------------------------------------------------------------
+function sandboxHook() {
+  const send = (level, args) => { try { parent.postMessage({ __omni: 1, level, args }, '*'); } catch (e) { } };
+  const fmt = (a) => {
+    try {
+      if (a instanceof Error) return a.stack || String(a);
+      if (typeof a === 'object' && a !== null) { const s = JSON.stringify(a, null, 1); return s && s.length > 3000 ? s.slice(0, 3000) + '…' : s; }
+      return String(a);
+    } catch (e) { return String(a); }
+  };
+  ['log', 'info', 'warn', 'error', 'debug'].forEach((l) => {
+    const orig = console[l];
+    console[l] = function (...a) { send(l, a.map(fmt)); if (orig) orig.apply(console, a); };
+  });
+  const origTable = console.table;
+  console.table = function (d) { send('log', [fmt(d)]); if (origTable) origTable.apply(console, arguments); };
+  console.assert = function (cond, ...a) { if (!cond) send('error', ['Assertion failed: ' + a.map(fmt).join(' ')]); };
+  console.clear = function () { send('clear', []); };
+  window.addEventListener('error', (e) => send('error', [(e.message || 'Error') + (e.lineno ? ' (line ' + e.lineno + ':' + e.colno + ')' : '')]));
+  window.addEventListener('unhandledrejection', (e) => send('error', ['Unhandled promise rejection: ' + fmt(e.reason)]));
+  // Sandboxed (opaque-origin) frames cannot use Web Storage. Provide an in-memory shim so games and apps keep working.
+  let blocked = false;
+  try { window.localStorage.getItem('__probe'); } catch (e) { blocked = true; }
+  if (blocked) {
+    const mk = () => { const m = new Map(); return { getItem: (k) => (m.has(String(k)) ? m.get(String(k)) : null), setItem: (k, v) => { m.set(String(k), String(v)); }, removeItem: (k) => { m.delete(String(k)); }, clear: () => m.clear(), key: (i) => [...m.keys()][i] ?? null, get length() { return m.size; } }; };
+    try { Object.defineProperty(window, 'localStorage', { value: mk(), configurable: true }); Object.defineProperty(window, 'sessionStorage', { value: mk(), configurable: true }); } catch (e) { }
+  }
+}
+
+function buildWebDocument({ withHook = true } = {}) {
+  const { html, css, js } = S.files;
+  const isFull = /<!doctype|<html[\s>]/i.test(html);
+  let doc = isFull ? html : `<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n<title>OmniCore App</title>\n</head>\n<body>\n${html}\n</body>\n</html>`;
+  const hook = withHook ? `<script>(${sandboxHook.toString()})();<\/script>` : '';
+  const style = css.trim() ? `<style>\n${css}\n</style>` : '';
+  const script = js.trim() ? `<script>\n${js.replace(/<\/script/gi, '<\\/script')}\n<\/script>` : '';
+  const headInject = hook + style;
+  if (/<head[^>]*>/i.test(doc)) doc = doc.replace(/<head[^>]*>/i, (m) => m + headInject);
+  else if (/<html[^>]*>/i.test(doc)) doc = doc.replace(/<html[^>]*>/i, (m) => m + '<head>' + headInject + '</head>');
+  else doc = headInject + doc;
+  if (script) { const i = doc.search(/<\/body>(?![\s\S]*<\/body>)/i); doc = i >= 0 ? doc.slice(0, i) + script + doc.slice(i) : doc + script; }
+  return doc;
+}
+
+let conErrors = 0;
+function refreshPreview() {
+  const frame = $('#previewFrame');
+  clearConsole(true);
+  frame.srcdoc = buildWebDocument();
+}
+
+function clearConsole(silent) {
+  $('#conOut').innerHTML = silent ? '<div class="tl sys">↻ Preview reloaded</div>' : '';
+  conErrors = 0; updateConBadge();
+}
+function updateConBadge() { const b = $('#conBadge'); b.textContent = conErrors; b.classList.toggle('hidden', !conErrors); }
+
+window.addEventListener('message', (e) => {
+  const frame = $('#previewFrame');
+  if (e.source !== frame.contentWindow || !e.data || !e.data.__omni) return;
+  const { level, args } = e.data;
+  if (level === 'clear') return clearConsole(false);
+  const out = $('#conOut');
+  const line = document.createElement('div');
+  line.className = 'tl log ' + (['warn', 'error', 'info', 'debug'].includes(level) ? level : 'stdout');
+  line.textContent = (level === 'error' ? '✖ ' : level === 'warn' ? '⚠ ' : '') + (Array.isArray(args) ? args.join(' ') : String(args));
+  out.append(line);
+  if (out.children.length > 1000) out.firstChild.remove();
+  if (level === 'error') {
+    conErrors++; updateConBadge();
+    if (!out.querySelector('.term-fix.pending')) {
+      const fix = document.createElement('div');
+      fix.className = 'term-fix pending';
+      fix.innerHTML = `<button class="btn !h-7 !text-[12px]">${ic('wand-sparkles')}Fix with AI</button>`;
+      fix.querySelector('button').onclick = () => fixWebWithAI(line.textContent);
+      out.append(fix);
+      setTimeout(() => fix.classList.remove('pending'), 1500);
+      icons();
+    }
+  }
+  if (S.layout.termTab === 'console') out.scrollTop = out.scrollHeight;
+});
+
+function fixWebWithAI(errorText) {
+  const html = S.files.html, js = S.files.js;
+  const visible = `My web app throws this error in the browser console:\n\n${FENCE}\n${errorText}\n${FENCE}\n\nFind the root cause and give me the complete corrected code.`;
+  const full = visible + `\n\nindex.html:\n${FENCE}html\n${html.slice(0, 8000)}\n${FENCE}` + (js.trim() ? `\n\napp.js:\n${FENCE}javascript\n${js.slice(0, 8000)}\n${FENCE}` : '');
+  askAI(visible, full);
+}
+
+function setDevice(d) {
+  S.layout.device = d; save('layout');
+  const box = $('#previewFrameBox');
+  box.classList.toggle('device', d !== 'full');
+  box.style.width = d === 'full' ? '100%' : d + 'px';
+  box.style.maxWidth = d === 'full' ? '' : 'calc(100% - 24px)';
+  $$('[data-device]').forEach(b => b.classList.toggle('active', b.dataset.device === d));
+}
+
+function openPreviewInTab() {
+  const url = URL.createObjectURL(new Blob([buildWebDocument({ withHook: false })], { type: 'text/html' }));
+  const w = window.open(url, '_blank');
+  if (!w) toast('Pop-up blocked — allow pop-ups to open the preview.', 'warn');
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+
+// ---------------------------------------------------------------------
+// 12. Python engine (Pyodide in a Web Worker)
+// ---------------------------------------------------------------------
+const PY_SETUP = `
+import sys, io, base64, os
+os.environ.setdefault("MPLBACKEND", "AGG")
+from pyodide.code import eval_code_async
+_omni_mpl_patched = False
+
+def __omni_patch_mpl():
+    global _omni_mpl_patched
+    if _omni_mpl_patched:
+        return
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    def _show(*args, **kwargs):
+        import js
+        for num in plt.get_fignums():
+            fig = plt.figure(num)
+            buf = io.BytesIO()
+            fig.savefig(buf, format="png", dpi=110, bbox_inches="tight", facecolor=fig.get_facecolor())
+            js.__omni_image(base64.b64encode(buf.getvalue()).decode("ascii"))
+        plt.close("all")
+    plt.show = _show
+    _omni_mpl_patched = True
+
+async def __omni_run(src, show_result):
+    result = await eval_code_async(src, globals())
+    if _omni_mpl_patched:
+        import matplotlib.pyplot as plt
+        if plt.get_fignums():
+            plt.show()
+    if result is not None and show_result:
+        print(repr(result))
+`;
+
+function pyWorkerMain(cfg) {
+  /* global importScripts, loadPyodide */
+  importScripts(cfg.indexURL + 'pyodide.js');
+  let py = null;
+  let stdinQueue = [];
+  const post = (type, data, id) => self.postMessage({ type, data, id });
+  self.__omni_image = (b64) => post('image', b64);
+  const cleanTb = (msg) => {
+    // Drop Pyodide/runner internals: keep frames from the user's top-level code (the last <module> frame) onwards.
+    const frames = [...msg.matchAll(/File "<exec>", line \d+, in <module>/g)];
+    const m = frames[frames.length - 1];
+    return m ? 'Traceback (most recent call last):\n  ' + msg.slice(m.index).trimEnd() : msg.trimEnd();
+  };
+  const ready = (async () => {
+    py = await loadPyodide({ indexURL: cfg.indexURL });
+    py.setStdout({ batched: (s) => post('stdout', s) });
+    py.setStderr({ batched: (s) => post('stderr', s) });
+    py.setStdin({ stdin: () => (stdinQueue.length ? stdinQueue.shift() : null), isatty: false });
+    await py.runPythonAsync(cfg.setup);
+    post('ready', py.version);
+  })().catch((e) => { post('fatal', String((e && e.message) || e)); throw e; });
+
+  self.onmessage = async (e) => {
+    const { id, cmd, code, stdin, packages } = e.data;
+    try {
+      await ready;
+      if (cmd === 'run' || cmd === 'repl') {
+        stdinQueue = stdin ? stdin.split(/\r?\n/) : [];
+        await py.loadPackagesFromImports(code, { messageCallback: (m) => post('sys', m), errorCallback: (m) => post('stderr', m) });
+        if (/\b(matplotlib|seaborn)\b|\.plot\(/.test(code)) {
+          try { py.runPython('__omni_patch_mpl()'); } catch (err) { /* matplotlib not imported/available */ }
+        }
+        py.globals.set('__omni_src', code);
+        await py.runPythonAsync('await __omni_run(__omni_src, ' + (cmd === 'repl' ? 'True' : 'False') + ')');
+        post('done', { ok: true }, id);
+      } else if (cmd === 'pip') {
+        await py.loadPackage('micropip', { messageCallback: (m) => post('sys', m) });
+        const micropip = py.pyimport('micropip');
+        post('sys', 'Installing ' + packages.join(', ') + ' …');
+        await micropip.install(packages);
+        micropip.destroy();
+        post('sys', 'Installed: ' + packages.join(', '));
+        post('done', { ok: true }, id);
+      } else if (cmd === 'reset') {
+        py.runPython('for _k in [k for k in list(globals()) if not k.startswith("__") and k not in ("sys","io","base64","os","eval_code_async","_omni_mpl_patched")]: del globals()[_k]');
+        post('done', { ok: true }, id);
+      }
+    } catch (err) {
+      const msg = String((err && err.message) || err);
+      post('error', cleanTb(msg), id);
+      post('done', { ok: false }, id);
+    }
+  };
+}
+
+const Py = {
+  worker: null, ready: false, readyPromise: null, running: false, pending: new Map(), seq: 0, version: '',
+  start() {
+    if (this.worker) return this.readyPromise;
+    setPyStatus('loading', 'Loading Python runtime…');
+    termLine('sys', '⏳ Starting Python (Pyodide) — first load downloads ~10 MB and is cached afterwards…');
+    const src = `(${pyWorkerMain.toString()})(${JSON.stringify({ indexURL: PYODIDE_BASE, setup: PY_SETUP })});`;
+    try {
+      this.worker = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
+    } catch (e) {
+      termLine('stderr', 'Could not start a Web Worker: ' + e.message);
+      setPyStatus('error', 'Python unavailable');
+      return Promise.resolve(false);
+    }
+    const t0 = performance.now();
+    this.readyPromise = new Promise((resolve) => {
+      this.worker.onmessage = (e) => {
+        const { type, data, id } = e.data;
+        if (type === 'ready') {
+          this.ready = true; this.version = data;
+          termLine('sys', `✓ Python ready (Pyodide ${data}) in ${((performance.now() - t0) / 1000).toFixed(1)}s`);
+          setPyStatus('ready', `Python ready · Pyodide ${data}`);
+          resolve(true);
+        } else if (type === 'fatal') {
+          termLine('stderr', 'Python failed to load: ' + data + (navigator.onLine ? '' : ' (you appear to be offline — Pyodide must be downloaded once)'));
+          setPyStatus('error', 'Python failed to load');
+          this.kill(); resolve(false);
+        } else if (type === 'stdout' || type === 'stderr' || type === 'sys') termLine(type, data);
+        else if (type === 'image') termImage(data);
+        else if (type === 'error') { termLine('error', data); termFixButton(data); }
+        else if (type === 'done') { const p = this.pending.get(id); if (p) { this.pending.delete(id); p(data); } }
+      };
+      this.worker.onerror = (e) => { termLine('stderr', 'Worker error: ' + (e.message || 'unknown')); };
+    });
+    return this.readyPromise;
+  },
+  async exec(cmd, payload = {}) {
+    const ok = await this.start();
+    if (!ok) return { ok: false };
+    const id = ++this.seq;
+    return new Promise((resolve) => { this.pending.set(id, resolve); this.worker.postMessage({ id, cmd, ...payload }); });
+  },
+  async run(code, mode = 'run') {
+    if (this.running) { toast('Python is busy — stop it first.', 'warn'); return; }
+    this.running = true;
+    $('#btnPyStop').classList.remove('hidden');
+    setPyStatus('running', 'Running…');
+    const t0 = performance.now();
+    const res = await this.exec(mode, { code, stdin: $('#stdin').value });
+    this.running = false;
+    $('#btnPyStop').classList.add('hidden');
+    if (this.ready) setPyStatus('ready', `${res.ok ? 'Finished' : 'Error'} in ${((performance.now() - t0) / 1000).toFixed(2)}s`);
+    if (mode === 'run') termLine('sys', `— ${res.ok ? 'finished' : 'exited with error'} in ${((performance.now() - t0) / 1000).toFixed(2)}s —`);
+    return res;
+  },
+  kill() {
+    try { this.worker?.terminate(); } catch { }
+    this.worker = null; this.ready = false; this.readyPromise = null; this.running = false;
+    for (const p of this.pending.values()) p({ ok: false });
+    this.pending.clear();
+    $('#btnPyStop').classList.add('hidden');
+  },
+  stop() {
+    if (!this.worker) return;
+    this.kill();
+    termLine('stderr', 'KeyboardInterrupt — Python runtime stopped and will restart on next run.');
+    setPyStatus('idle', 'Python stopped');
+  },
+  restart() { this.kill(); termLine('sys', '↻ Restarting Python…'); this.start(); },
+};
+
+function setPyStatus(state, text) {
+  const colors = { idle: '#52525b', loading: '#fbbf24', ready: '#34d399', running: '#22d3ee', error: '#f87171' };
+  $('#pyStatusDot').style.background = colors[state] || colors.idle;
+  $('#pyStatus').textContent = text;
+}
+
+function termLine(type, text) {
+  const out = $('#pyOut');
+  const div = document.createElement('div');
+  div.className = 'tl ' + type;
+  div.textContent = text;
+  out.append(div);
+  while (out.children.length > 3000) out.firstChild.remove();
+  out.scrollTop = out.scrollHeight;
+}
+function termImage(b64) {
+  const out = $('#pyOut');
+  const wrap = document.createElement('div');
+  wrap.className = 'tl-img';
+  wrap.innerHTML = `<img alt="matplotlib figure" src="data:image/png;base64,${b64}"><div class="flex justify-end mt-1"><button class="cb-btn">${ic('download')}PNG</button></div>`;
+  wrap.querySelector('button').onclick = () => { const a = Object.assign(document.createElement('a'), { href: 'data:image/png;base64,' + b64, download: 'figure-' + Date.now() + '.png' }); a.click(); };
+  out.append(wrap);
+  icons();
+  wrap.querySelector('img').onload = () => { out.scrollTop = out.scrollHeight; };
+  if (S.layout.termCollapsed) toggleTerminal(false);
+}
+function termFixButton(tb) {
+  const div = document.createElement('div');
+  div.className = 'term-fix';
+  div.innerHTML = `<button class="btn !h-7 !text-[12px]">${ic('wand-sparkles')}Fix with AI</button>`;
+  div.querySelector('button').onclick = () => {
+    const code = S.files.py;
+    const visible = `My Python code raised an error:\n\n${FENCE}\n${tb.slice(-1500)}\n${FENCE}\n\nExplain the root cause and give me the complete corrected code.`;
+    askAI(visible, visible + `\n\nmain.py:\n${FENCE}python\n${code.slice(0, 10000)}\n${FENCE}`);
+  };
+  $('#pyOut').append(div);
+  icons();
+}
+
+async function runPython(code = S.files.py) {
+  setTermTab('py');
+  if (S.layout.termCollapsed) toggleTerminal(false);
+  if (MOBILE_MQ.matches) setMobilePanel('run');
+  termLine('prompt', `▶ python ${FILES.py.name}`);
+  await Py.run(code, 'run');
+}
+
+async function replSubmit(line) {
+  const src = line.trim();
+  if (!src) return;
+  S.replHistory.push(src); replIdx = S.replHistory.length; save('ui');
+  setTermTab('py');
+  const pip = /^[%!]?pip\s+install\s+(.+)$/i.exec(src);
+  if (pip) {
+    termLine('prompt', '>>> ' + src);
+    const pkgs = pip[1].split(/[\s,]+/).filter(Boolean);
+    await Py.exec('pip', { packages: pkgs });
+    return;
+  }
+  if (src === '%clear' || src === 'clear') { $('#pyOut').innerHTML = ''; return; }
+  if (src === '%reset') { await Py.exec('reset'); termLine('sys', 'Namespace cleared.'); return; }
+  termLine('prompt', src.split('\n').map((l, i) => (i ? '... ' : '>>> ') + l).join('\n'));
+  await Py.run(src, 'repl');
+}
+let replIdx = 0;
+
+// ---------------------------------------------------------------------
+// 13. Running code (workbench + chat integration)
+// ---------------------------------------------------------------------
+function runCurrent() {
+  if (S.activeFile === 'py') runPython();
+  else {
+    refreshPreview();
+    if (MOBILE_MQ.matches) setMobilePanel('run');
+    flashRunPanel();
+  }
+}
+
+function flashRunPanel() {
+  const box = $('#previewFrameBox');
+  box.animate([{ boxShadow: '0 0 0 2px #22d3ee' }, { boxShadow: '0 0 0 0 transparent' }], { duration: 600 });
+}
+
+function applyCodeToWorkbench(code, langKey) {
+  saveSnapshot('Before AI code', true);
+  if (langKey === 'html') {
+    Editor.setValue('html', code);
+    if (/<!doctype|<html[\s>]/i.test(code) || /<script[\s>]/i.test(code)) { Editor.setValue('css', ''); Editor.setValue('js', ''); }
+    setActiveFile('html');
+  } else if (langKey === 'css') { Editor.setValue('css', code); setActiveFile('css'); }
+  else if (langKey === 'js') { Editor.setValue('js', code); setActiveFile('js'); }
+  else if (langKey === 'py') { Editor.setValue('py', code); setActiveFile('py'); }
+  else if (langKey === 'ts') { Editor.setValue('js', code); setActiveFile('js'); toast('TypeScript placed in app.js — type annotations may need removing to run.', 'warn'); }
+  save('files', 50);
+}
+
+function runFromChat(code, langKey) {
+  applyCodeToWorkbench(code, langKey);
+  if (langKey === 'py') { runPython(code); return; }
+  refreshPreview();
+  if (langKey === 'js') { setTermTab('console'); if (S.layout.termCollapsed) toggleTerminal(false); }
+  if (MOBILE_MQ.matches) setMobilePanel('run');
+  flashRunPanel();
+  toast(`Running ${FILES[langKey === 'ts' ? 'js' : langKey].name} in the sandbox`, 'ok', { duration: 1800 });
+}
+
+// ---------------------------------------------------------------------
+// 14. Snapshots, templates, sharing & export
+// ---------------------------------------------------------------------
+function saveSnapshot(label = 'Snapshot', silent = false) {
+  const last = S.snapshots[0];
+  if (last && JSON.stringify(last.files) === JSON.stringify(S.files)) { if (!silent) toast('No changes since the last snapshot', 'info', { duration: 1500 }); return; }
+  S.snapshots.unshift({ id: uid(), ts: Date.now(), label, files: { ...S.files } });
+  S.snapshots = S.snapshots.slice(0, 40);
+  save('snapshots');
+  if (!silent) toast('Snapshot saved', 'ok', { duration: 1500 });
+}
+
+function renderSnapshots() {
+  const list = $('#snapList');
+  if (!S.snapshots.length) { list.innerHTML = '<div class="text-[13px] text-zinc-500 text-center p-6">No snapshots yet. Press <kbd>Ctrl</kbd>+<kbd>S</kbd> to save one. A snapshot is also taken automatically before AI code or templates replace your files.</div>'; return; }
+  list.innerHTML = S.snapshots.map(s => {
+    const sizes = Object.keys(FILES).map(k => `${FILES[k].name.split('.').pop()} ${s.files[k]?.split('\n').length || 0}L`).join(' · ');
+    return `<div class="flex items-center gap-3 p-3 rounded-xl border border-zinc-800 bg-[#0d0d10]" data-snap="${s.id}">
+      ${ic('git-commit-horizontal', 'class="text-cyan-400"')}<div class="flex-1 min-w-0"><div class="text-[13.5px] truncate">${escapeHtml(s.label)}</div><div class="text-[11px] text-zinc-500 font-mono truncate">${fmtTime(s.ts)} · ${sizes}</div></div>
+      <button class="btn !h-8" data-snap-act="restore">${ic('rotate-ccw')}Restore</button><button class="icon-btn" data-snap-act="delete" title="Delete">${ic('trash-2')}</button></div>`;
+  }).join('');
+  icons();
+}
+
+function restoreSnapshot(id) {
+  const s = S.snapshots.find(x => x.id === id);
+  if (!s) return;
+  saveSnapshot('Before restore', true);
+  for (const k of Object.keys(FILES)) Editor.setValue(k, s.files[k] ?? '');
+  setActiveFile(S.activeFile);
+  refreshPreview();
+  save('files', 50);
+  closeModals();
+  toast('Snapshot restored', 'ok');
+}
+
+function loadTemplate(key) {
+  const t = TEMPLATES[key];
+  saveSnapshot('Before template: ' + t.label, true);
+  if (t.kind === 'web') {
+    for (const k of ['html', 'css', 'js']) Editor.setValue(k, t.files[k] || '');
+    setActiveFile('html');
+    refreshPreview();
+    if (MOBILE_MQ.matches) setMobilePanel('run');
+  } else {
+    Editor.setValue('py', t.files.py);
+    setActiveFile('py');
+    if (MOBILE_MQ.matches) setMobilePanel('code');
+  }
+  save('files', 50);
+  toast(`Loaded template “${t.label}”`, 'ok', { duration: 1800 });
+}
+
+async function compress(str) {
+  const bytes = new TextEncoder().encode(str);
+  if ('CompressionStream' in window) {
+    const cs = new Blob([bytes]).stream().pipeThrough(new CompressionStream('deflate-raw'));
+    const buf = new Uint8Array(await new Response(cs).arrayBuffer());
+    return 'z' + b64url(buf);
+  }
+  return 'b' + b64url(bytes);
+}
+async function decompress(s) {
+  const kind = s[0];
+  const bytes = fromB64url(s.slice(1));
+  if (kind === 'z') {
+    const ds = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+    return await new Response(ds).text();
+  }
+  return new TextDecoder().decode(bytes);
+}
+function b64url(bytes) { let bin = ''; for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000)); return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
+function fromB64url(s) { const bin = atob(s.replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(bin, c => c.charCodeAt(0)); }
+
+async function shareProject() {
+  const payload = await compress(JSON.stringify({ v: 1, f: S.files, a: S.activeFile }));
+  const url = location.href.split('#')[0] + '#p=' + payload;
+  if (url.length > 60000) toast('Project is large — the link may be too long for some apps.', 'warn');
+  if (navigator.share && IS_TOUCH) { try { await navigator.share({ title: 'OmniCore Studio project', url }); return; } catch { } }
+  copyText(url);
+}
+
+async function loadFromHash() {
+  const m = /#p=([\w-]+)/.exec(location.hash);
+  if (!m) return;
+  try {
+    const data = JSON.parse(await decompress(m[1]));
+    if (!data?.f) throw new Error('bad payload');
+    if (!confirm('Open the shared project from this link? Your current files will be saved as a snapshot first.')) return;
+    saveSnapshot('Before shared project', true);
+    for (const k of Object.keys(FILES)) Editor.setValue(k, data.f[k] ?? '');
+    setActiveFile(FILES[data.a] ? data.a : 'html');
+    refreshPreview();
+    save('files', 50);
+    toast('Shared project loaded', 'ok');
+  } catch (e) { toast('Could not read the shared link: ' + e.message, 'err'); }
+  finally { history.replaceState(null, '', location.pathname + location.search); }
+}
+
+async function fileAction(act) {
+  if (act === 'share') return shareProject();
+  if (act === 'bundle') return downloadFile('omnicore-app.html', buildWebDocument({ withHook: false }), 'text/html');
+  if (act === 'current') { const f = FILES[S.activeFile]; return downloadFile(f.name, S.files[S.activeFile], f.mime); }
+  if (act === 'open') {
+    const file = await pickFile('.html,.htm,.css,.js,.mjs,.py,.txt,.json,.md');
+    if (!file) return;
+    const text = await file.text();
+    const ext = file.name.split('.').pop().toLowerCase();
+    const key = { html: 'html', htm: 'html', css: 'css', js: 'js', mjs: 'js', py: 'py' }[ext] || S.activeFile;
+    saveSnapshot('Before opening ' + file.name, true);
+    Editor.setValue(key, text); setActiveFile(key);
+    if (key !== 'py') refreshPreview();
+    toast(`Opened ${file.name} into ${FILES[key].name}`, 'ok');
+  }
+  if (act === 'reset') {
+    if (!confirm(`Reset ${FILES[S.activeFile].name} to its default content?`)) return;
+    saveSnapshot('Before reset', true);
+    const def = S.activeFile === 'py' ? TEMPLATES.pyAlgo.files.py : TEMPLATES.welcome.files[S.activeFile];
+    Editor.setValue(S.activeFile, def);
+    if (S.activeFile !== 'py') refreshPreview();
+  }
+}
+
+async function chatAction(act) {
+  const c = activeConv();
+  const safe = (c.title || 'chat').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-').slice(0, 40) || 'chat';
+  if (act === 'export-md') downloadFile(safe + '.md', convToMarkdown(c), 'text/markdown');
+  if (act === 'export-json') downloadFile(safe + '.json', JSON.stringify({ app: 'omnicore-studio', type: 'conversation', conversation: c }, null, 2), 'application/json');
+  if (act === 'import') {
+    const file = await pickFile('.json');
+    if (!file) return;
+    try {
+      const data = JSON.parse(await file.text());
+      const list = data.conversation ? [data.conversation] : Array.isArray(data.convs) ? data.convs : [];
+      if (!list.length || !Array.isArray(list[0].messages)) throw new Error('No conversations in file');
+      list.forEach(conv => S.convs.unshift({ ...conv, id: uid() }));
+      S.activeConv = S.convs[0].id;
+      renderConvList(); renderMessages(); save('convs');
+      toast(`Imported ${list.length} conversation(s)`, 'ok');
+    } catch (e) { toast('Import failed: ' + e.message, 'err'); }
+  }
+  if (act === 'clear') { if (c.messages.length && confirm('Clear all messages in this chat?')) { c.messages = []; S.editIndex = null; updateEditChip(); renderMessages(); save('convs'); } }
+  if (act === 'delete') deleteConversation(c.id);
+}
+
+async function exportAll() {
+  const data = { app: 'omnicore-studio', type: 'backup', version: 1, exported: new Date().toISOString(), settings: S.settings, layout: S.layout, files: S.files, convs: S.convs, snapshots: S.snapshots };
+  downloadFile(`omnicore-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(data), 'application/json');
+}
+async function importAll() {
+  const file = await pickFile('.json');
+  if (!file) return;
+  try {
+    const d = JSON.parse(await file.text());
+    if (d.type !== 'backup') throw new Error('Not an OmniCore backup file');
+    if (!confirm('Restore this backup? Current chats, files and settings will be replaced.')) return;
+    S.settings = { ...DEFAULT_SETTINGS, ...d.settings }; S.layout = { ...DEFAULT_LAYOUT, ...d.layout };
+    S.files = { ...S.files, ...d.files }; S.convs = d.convs?.length ? d.convs : S.convs; S.snapshots = d.snapshots || [];
+    S.activeConv = S.convs[0].id;
+    for (const k of Object.keys(SAVE_KEYS)) await KV.set(k, JSON.parse(JSON.stringify(SAVE_KEYS[k]())));
+    location.reload();
+  } catch (e) { toast('Restore failed: ' + e.message, 'err'); }
+}
+async function resetAll() {
+  if (!confirm('Reset OmniCore Studio? This deletes all chats, files, snapshots and settings stored in this browser (cached model weights are kept).')) return;
+  Object.keys(saveTimers).forEach(k => clearTimeout(saveTimers[k]));
+  await KV.clear();
+  location.reload();
+}
+
+// ---------------------------------------------------------------------
+// 15. Layout: resizable panels, terminal, mobile navigation, keyboard
+// ---------------------------------------------------------------------
+function applyLayout() {
+  const L = S.layout;
+  if (!MOBILE_MQ.matches) {
+    $('#panel-chat').style.flex = `0 0 ${L.chat}%`;
+    $('#panel-code').style.flex = `0 0 ${L.code}%`;
+    $('#panel-run').style.flex = '1 1 0';
+  } else {
+    for (const id of ['#panel-chat', '#panel-code', '#panel-run']) $(id).style.flex = '';
+  }
+  const term = $('#terminal');
+  term.classList.toggle('collapsed', L.termCollapsed);
+  term.classList.toggle('max', L.termMax && !L.termCollapsed);
+  term.style.flex = L.termCollapsed || L.termMax ? '' : `0 0 ${L.term}%`;
+  $('#previewStage').style.display = L.termMax && !L.termCollapsed ? 'none' : '';
+  $('#termResizer').style.display = L.termCollapsed || L.termMax ? 'none' : '';
+  $('#btnTermToggle').innerHTML = ic(L.termCollapsed ? 'chevron-up' : 'chevron-down');
+  $('#btnTermToggle').title = L.termCollapsed ? 'Expand terminal' : 'Collapse terminal';
+  $('#btnTermMax').innerHTML = ic(L.termMax ? 'minimize-2' : 'maximize-2');
+  icons();
+}
+
+function initResizers() {
+  $$('.resizer').forEach((r) => {
+    r.addEventListener('dblclick', () => { S.layout.chat = DEFAULT_LAYOUT.chat; S.layout.code = DEFAULT_LAYOUT.code; applyLayout(); Editor.refresh(); save('layout'); });
+    r.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      r.setPointerCapture(e.pointerId);
+      r.classList.add('dragging'); document.body.classList.add('resizing');
+      const ws = $('#workspace').getBoundingClientRect();
+      const idx = +r.dataset.resize;
+      const move = (ev) => {
+        const pct = ((ev.clientX - ws.left) / ws.width) * 100;
+        if (idx === 0) S.layout.chat = clamp(pct, 18, 100 - S.layout.code - 18);
+        else S.layout.code = clamp(pct - S.layout.chat, 18, 100 - S.layout.chat - 18);
+        applyLayout();
+      };
+      const up = () => {
+        r.removeEventListener('pointermove', move); r.removeEventListener('pointerup', up); r.removeEventListener('pointercancel', up);
+        r.classList.remove('dragging'); document.body.classList.remove('resizing');
+        Editor.refresh(); save('layout');
+      };
+      r.addEventListener('pointermove', move); r.addEventListener('pointerup', up); r.addEventListener('pointercancel', up);
+    });
+  });
+  const hr = $('#termResizer');
+  hr.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    hr.setPointerCapture(e.pointerId);
+    hr.classList.add('dragging'); document.body.classList.add('resizing');
+    const body = $('#runBody').getBoundingClientRect();
+    const move = (ev) => { S.layout.term = clamp(((body.bottom - ev.clientY) / body.height) * 100, 12, 88); applyLayout(); };
+    const up = () => { hr.removeEventListener('pointermove', move); hr.removeEventListener('pointerup', up); hr.removeEventListener('pointercancel', up); hr.classList.remove('dragging'); document.body.classList.remove('resizing'); save('layout'); };
+    hr.addEventListener('pointermove', move); hr.addEventListener('pointerup', up); hr.addEventListener('pointercancel', up);
+  });
+}
+
+function toggleTerminal(force) {
+  S.layout.termCollapsed = typeof force === 'boolean' ? force : !S.layout.termCollapsed;
+  if (S.layout.termCollapsed) S.layout.termMax = false;
+  applyLayout(); save('layout');
+}
+function toggleTermMax() { S.layout.termMax = !S.layout.termMax; S.layout.termCollapsed = false; applyLayout(); save('layout'); }
+
+function setTermTab(tab) {
+  S.layout.termTab = tab; save('layout');
+  $$('[data-term]').forEach(t => t.classList.toggle('active', t.dataset.term === tab));
+  $('#pyOut').classList.toggle('hidden', tab !== 'py');
+  $('#conOut').classList.toggle('hidden', tab !== 'console');
+  $('#replRow').classList.toggle('hidden', tab !== 'py');
+  $('#stdinBox').classList.toggle('hidden', tab !== 'py' || !S.stdinOpen);
+  for (const id of ['#btnPip', '#btnStdin', '#btnPyRestart']) $(id).classList.toggle('hidden', tab !== 'py');
+  if (tab === 'console') { const o = $('#conOut'); o.scrollTop = o.scrollHeight; }
+}
+
+const PANELS = ['chat', 'code', 'run'];
+function setMobilePanel(name) {
+  S.mobilePanel = name; save('ui');
+  $$('.panel').forEach(p => p.classList.toggle('m-active', p.dataset.panel === name));
+  $$('#mobileNav [data-nav]').forEach(b => b.classList.toggle('active', b.dataset.nav === name));
+  $('#navDot-' + name).classList.remove('show');
+  if (name === 'code') setTimeout(() => Editor.refresh(), 0);
+  if (name === 'chat') setTimeout(() => scrollChat(true), 0);
+}
+
+function initSwipe() {
+  let sx = 0, sy = 0, st = 0, ok = false;
+  const ws = $('#workspace');
+  ws.addEventListener('touchstart', (e) => {
+    if (!MOBILE_MQ.matches || e.touches.length !== 1) { ok = false; return; }
+    const t = e.target;
+    ok = !t.closest('.CodeMirror, textarea, input, pre, .cb, .term-out, table, #previewStage, select, .menu, #keybar');
+    sx = e.touches[0].clientX; sy = e.touches[0].clientY; st = Date.now();
+  }, { passive: true });
+  ws.addEventListener('touchend', (e) => {
+    if (!ok) return;
+    const dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy;
+    if (Math.abs(dx) > 70 && Math.abs(dy) < 60 && Date.now() - st < 600) {
+      const i = PANELS.indexOf(S.mobilePanel);
+      const next = dx < 0 ? Math.min(2, i + 1) : Math.max(0, i - 1);
+      if (next !== i) setMobilePanel(PANELS[next]);
+    }
+  }, { passive: true });
+}
+
+function initViewport() {
+  const vv = window.visualViewport;
+  const update = () => {
+    const h = vv ? vv.height : window.innerHeight;
+    document.documentElement.style.setProperty('--app-h', h + 'px');
+    const typing = document.activeElement?.matches?.('textarea, input:not([type=checkbox]):not([type=range]):not([type=file]), [contenteditable="true"]');
+    const kb = IS_TOUCH && ((vv && window.innerHeight - vv.height > 140) || typing);
+    document.body.classList.toggle('kb-open', !!kb);
+    if (vv) window.scrollTo(0, 0);
+    if (kb && S.mobilePanel === 'chat') scrollChat(true);
+  };
+  if (vv) { vv.addEventListener('resize', update); vv.addEventListener('scroll', update); }
+  window.addEventListener('resize', update);
+  document.addEventListener('focusin', update);
+  document.addEventListener('focusout', () => setTimeout(update, 50));
+  update();
+  MOBILE_MQ.addEventListener('change', () => { applyLayout(); Editor.refresh(); });
+}
+
+// ---------------------------------------------------------------------
+// 16. Menus, modals & settings
+// ---------------------------------------------------------------------
+function closeMenus(except) { $$('.menu.open').forEach(m => { if (m !== except) m.classList.remove('open'); }); }
+function closeModals() { $$('.modal.open').forEach(m => m.classList.remove('open')); }
+function openModal(id) { closeMenus(); $(id).classList.add('open'); icons(); }
+
+function renderTemplatesMenu() {
+  $('#templatesMenu').innerHTML = '<div class="label">Web</div>' +
+    Object.entries(TEMPLATES).filter(([, t]) => t.kind === 'web').map(([k, t]) => `<button data-tpl="${k}">${ic(t.icon)}${escapeHtml(t.label)}</button>`).join('') +
+    '<div class="sep"></div><div class="label">Python</div>' +
+    Object.entries(TEMPLATES).filter(([, t]) => t.kind === 'py').map(([k, t]) => `<button data-tpl="${k}">${ic(t.icon)}${escapeHtml(t.label)}</button>`).join('');
+}
+
+function syncSettingsForm() {
+  const s = S.settings;
+  $('#setTemp').value = s.temperature; $('#setTempVal').textContent = (+s.temperature).toFixed(2);
+  $('#setTopP').value = s.topP; $('#setTopPVal').textContent = (+s.topP).toFixed(2);
+  $('#setMaxTokens').value = s.maxTokens; $('#setContext').value = s.contextMsgs;
+  $('#setSystem').value = s.systemPrompt;
+  $('#setAutoLoad').checked = s.autoLoad; $('#setWorker').checked = s.useWorker; $('#setDemo').checked = AI.mode === 'demo';
+  $('#setAutoRunAI').checked = s.autoRunAI; $('#setAutoPreview').checked = s.autoPreview; $('#setWrap').checked = s.wrap;
+  $('#setEnter').checked = s.enterSends; $('#setFont').value = s.fontSize;
+  $('#chipContext').classList.toggle('on', s.includeEditor);
+  $('#btnAuto').classList.toggle('on', s.autoPreview);
+  const g = GPU;
+  $('#gpuInfo').innerHTML = g.ok === null ? 'Detecting…' : g.ok
+    ? `WebGPU: <span class="text-emerald-400">available</span><br>GPU: ${escapeHtml([g.info.vendor, g.info.architecture, g.info.description].filter(Boolean).join(' · ') || 'unknown')}<br>shader-f16: ${g.f16 ? '<span class="text-emerald-400">yes</span> (q4f16 models)' : '<span class="text-amber-300">no</span> (q4f32 models)'}<br>Max buffer: ${fmtBytes(g.limits.maxBuffer)}${navigator.deviceMemory ? `<br>Device RAM: ~${navigator.deviceMemory} GB` : ''}<br>CPU threads: ${navigator.hardwareConcurrency || '?'}`
+    : `WebGPU: <span class="text-amber-300">unavailable</span> — ${escapeHtml(g.reason)}<br>CPU threads: ${navigator.hardwareConcurrency || '?'}${navigator.deviceMemory ? ` · RAM ~${navigator.deviceMemory} GB` : ''}`;
+  refreshCacheInfo();
+}
+
+function bindSettings() {
+  const s = S.settings;
+  const bindRange = (id, key, lbl) => $(id).addEventListener('input', (e) => { s[key] = +e.target.value; $(lbl).textContent = s[key].toFixed(2); save('settings'); });
+  bindRange('#setTemp', 'temperature', '#setTempVal');
+  bindRange('#setTopP', 'topP', '#setTopPVal');
+  $('#setMaxTokens').addEventListener('change', (e) => { s.maxTokens = clamp(+e.target.value || 1024, 64, 8192); e.target.value = s.maxTokens; save('settings'); });
+  $('#setContext').addEventListener('change', (e) => { s.contextMsgs = clamp(+e.target.value || 12, 2, 60); e.target.value = s.contextMsgs; save('settings'); });
+  $('#setSystem').addEventListener('input', debounce((e) => { s.systemPrompt = e.target.value; save('settings'); }, 300));
+  $('#btnResetSystem').onclick = () => { s.systemPrompt = DEFAULT_SYSTEM_PROMPT; $('#setSystem').value = s.systemPrompt; save('settings'); toast('System prompt reset', 'ok', { duration: 1500 }); };
+  $('#setAutoLoad').onchange = (e) => { s.autoLoad = e.target.checked; save('settings'); };
+  $('#setWorker').onchange = (e) => { s.useWorker = e.target.checked; save('settings'); toast('Takes effect the next time a model is loaded (reload the page).', 'info'); };
+  $('#setDemo').onchange = (e) => { e.target.checked ? enableDemo() : disableDemo(); };
+  $('#setAutoRunAI').onchange = (e) => { s.autoRunAI = e.target.checked; save('settings'); };
+  $('#setAutoPreview').onchange = (e) => { s.autoPreview = e.target.checked; $('#btnAuto').classList.toggle('on', s.autoPreview); save('settings'); };
+  $('#setWrap').onchange = (e) => { s.wrap = e.target.checked; Editor.setWrap(s.wrap); save('settings'); };
+  $('#setEnter').onchange = (e) => { s.enterSends = e.target.checked; save('settings'); };
+  $('#setFont').addEventListener('change', (e) => { s.fontSize = clamp(+e.target.value || 14, 10, 24); e.target.value = s.fontSize; Editor.setFontSize(s.fontSize); save('settings'); });
+  for (const sel of [$('#modelSelect'), $('#setModelSelect')]) {
+    sel.addEventListener('change', (e) => {
+      s.model = e.target.value; save('settings');
+      $('#modelSelect').value = s.model; $('#setModelSelect').value = s.model;
+      updateModelInfo(); updateLoadButtons(); updateEngineHint();
+    });
+  }
+  $('#btnClearModelCache').onclick = async () => {
+    const id = modelId(s.model);
+    if (!confirm(`Delete ${id} from the browser cache? It will need to be downloaded again.`)) return;
+    try { await importWebLLM(); await AI.webllm.deleteModelAllInfoInCache(id); AI.cached[s.model] = false; toast('Model removed from cache', 'ok'); refreshCacheInfo(); }
+    catch (e) { toast('Could not clear cache: ' + e.message, 'err'); }
+  };
+  $('#btnExportAll').onclick = exportAll;
+  $('#btnImportAll').onclick = importAll;
+  $('#btnResetAll').onclick = resetAll;
+}
+
+// ---------------------------------------------------------------------
+// 17. Voice input
+// ---------------------------------------------------------------------
+function initVoice() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const btn = $('#btnMic');
+  if (!SR) { btn.classList.add('hidden'); return; }
+  let rec = null;
+  btn.onclick = () => {
+    if (rec) { rec.stop(); return; }
+    rec = new SR();
+    rec.lang = navigator.language || 'en-US';
+    rec.interimResults = true; rec.continuous = false;
+    const base = $('#input').value;
+    rec.onresult = (e) => {
+      const t = [...e.results].map(r => r[0].transcript).join('');
+      $('#input').value = (base ? base + ' ' : '') + t; autoGrow(); updateTokenCount();
+    };
+    rec.onerror = (e) => { if (e.error !== 'aborted') toast('Voice input error: ' + e.error, 'warn'); };
+    rec.onend = () => { rec = null; btn.classList.remove('active'); btn.innerHTML = ic('mic'); icons(); };
+    rec.start();
+    btn.classList.add('active'); btn.innerHTML = ic('mic-off'); icons();
+  };
+}
+
+// ---------------------------------------------------------------------
+// 18. Event wiring
+// ---------------------------------------------------------------------
+function bindEvents() {
+  // Header
+  $('#loadBtn').onclick = () => loadModel();
+  $('#setLoadBtn').onclick = () => loadModel();
+  $('#progressCancel').onclick = cancelLoading;
+  $('#statusPill').onclick = () => {
+    if (AI.mode === 'idle' && GPU.ok) loadModel();
+    else { syncSettingsForm(); openModal('#modalSettings'); }
+  };
+  $('#btnSettings').onclick = () => { syncSettingsForm(); openModal('#modalSettings'); };
+  $('#btnHelp').onclick = () => openModal('#modalHelp');
+
+  // Chat
+  const input = $('#input');
+  input.addEventListener('input', () => { autoGrow(); updateTokenCount(); });
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.isComposing) {
+      const send = (e.ctrlKey || e.metaKey) || (S.settings.enterSends && !e.shiftKey && !IS_TOUCH);
+      if (send) { e.preventDefault(); sendMessage(input.value); }
+    }
+    if (e.key === 'Escape' && S.editIndex !== null) { S.editIndex = null; input.value = ''; autoGrow(); updateEditChip(); }
+    if (e.key === 'ArrowUp' && !input.value) {
+      const lastUser = [...activeConv().messages].reverse().find(m => m.role === 'user');
+      if (lastUser) { e.preventDefault(); input.value = lastUser.content; autoGrow(); }
+    }
+  });
+  $('#btnSend').onclick = () => sendMessage(input.value);
+  $('#btnStop').onclick = stopGeneration;
+  $('#btnCancelEdit').onclick = () => { S.editIndex = null; input.value = ''; autoGrow(); updateEditChip(); };
+  $('#chipContext').onclick = () => {
+    S.settings.includeEditor = !S.settings.includeEditor; save('settings');
+    $('#chipContext').classList.toggle('on', S.settings.includeEditor);
+    toast(S.settings.includeEditor ? `${FILES[S.activeFile].name} will be attached to your messages` : 'Code context off', 'info', { duration: 1800 });
+  };
+  $('#chipMode').onclick = () => {
+    if (AI.mode === 'demo') {
+      if (!GPU.ok) return toast(GPU.reason + ' — demo mode only on this device.', 'warn');
+      disableDemo();
+      if (!AI.engine) loadModel();
+    } else enableDemo();
+  };
+  $('#btnNewChat').onclick = () => newConversation();
+  $('#btnNewChat2').onclick = () => { newConversation(); $('#convDrawer').classList.remove('open'); };
+  $('#btnConvs').onclick = () => { $('#convDrawer').classList.toggle('open'); renderConvList(); if ($('#convDrawer').classList.contains('open') && !IS_TOUCH) $('#convSearch').focus(); };
+  $('#convDrawer').addEventListener('click', (e) => { if (e.target.id === 'convDrawer') e.currentTarget.classList.remove('open'); });
+  $('#convSearch').addEventListener('input', renderConvList);
+  $('#chatTitle').onclick = () => renameConversation(S.activeConv);
+
+  $('#messages').addEventListener('click', (e) => {
+    const sug = e.target.closest('[data-suggest]');
+    if (sug) {
+      const s = SUGGESTIONS[+sug.dataset.suggest];
+      if (s.p === '__EXPLAIN__') return aiAction('explain');
+      return sendMessage(s.p);
+    }
+    if (e.target.closest('[data-load-model]')) return loadModel();
+    const cbBtn = e.target.closest('[data-cb]');
+    if (cbBtn) {
+      const cb = cbBtn.closest('.cb');
+      const { _code: code, _lang: lang } = cb;
+      const act = cbBtn.dataset.cb;
+      if (act === 'copy') copyText(code);
+      if (act === 'run') runFromChat(code, lang.key);
+      if (act === 'insert') { applyCodeToWorkbench(code, lang.key); if (lang.key !== 'py') refreshPreview(); if (MOBILE_MQ.matches) setMobilePanel('code'); toast('Inserted into ' + FILES[lang.key === 'ts' ? 'js' : lang.key].name, 'ok', { duration: 1500 }); }
+      if (act === 'download') {
+        const ext = { py: 'py', html: 'html', js: 'js', css: 'css', ts: 'ts' }[lang.key] || ({ json: 'json', bash: 'sh', sh: 'sh', sql: 'sql', md: 'md', markdown: 'md' }[lang.raw] || 'txt');
+        downloadFile('snippet.' + ext, code);
+      }
+      return;
+    }
+    const mBtn = e.target.closest('[data-msg]');
+    if (mBtn) {
+      const idx = +mBtn.closest('.msg').dataset.idx;
+      const conv = activeConv();
+      const m = conv.messages[idx];
+      const act = mBtn.dataset.msg;
+      if (act === 'copy') copyText(m.content);
+      if (act === 'regen') regenerate();
+      if (act === 'delete') { if (AI.generating) return; conv.messages.splice(idx, 1); renderMessages(); save('convs'); }
+      if (act === 'edit') { if (AI.generating) return; S.editIndex = idx; input.value = m.content; autoGrow(); updateTokenCount(); updateEditChip(); input.focus(); }
+      if (act === 'speak') {
+        if (speechSynthesis.speaking) { speechSynthesis.cancel(); return; }
+        const plain = stripThink(m.content).replace(/```[\s\S]*?```/g, ' (code block) ').replace(/[#*_`>]/g, '');
+        speechSynthesis.speak(Object.assign(new SpeechSynthesisUtterance(plain), { lang: navigator.language || 'en-US' }));
+      }
+    }
+  });
+
+  $('#chatMenu').addEventListener('click', (e) => { const b = e.target.closest('[data-chat-act]'); if (b) { closeMenus(); chatAction(b.dataset.chatAct); } });
+
+  // Code panel
+  $('#fileTabs').addEventListener('click', (e) => { const t = e.target.closest('[data-file]'); if (t) setActiveFile(t.dataset.file); });
+  $('#btnRun').onclick = runCurrent;
+  $('#btnFormat').onclick = () => Editor.format();
+  $('#btnSnapshot').onclick = () => saveSnapshot('Manual save');
+  $('#btnSnapshots').onclick = () => { renderSnapshots(); openModal('#modalSnapshots'); };
+  $('#templatesMenu').addEventListener('click', (e) => { const b = e.target.closest('[data-tpl]'); if (b) { closeMenus(); loadTemplate(b.dataset.tpl); } });
+  $('#aiMenu').addEventListener('click', (e) => { const b = e.target.closest('[data-ai]'); if (b) { closeMenus(); aiAction(b.dataset.ai); } });
+  $('#fileMenu').addEventListener('click', (e) => { const b = e.target.closest('[data-file-act]'); if (b) { closeMenus(); fileAction(b.dataset.fileAct); } });
+  $('#snapList').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-snap-act]');
+    if (!b) return;
+    const id = b.closest('[data-snap]').dataset.snap;
+    if (b.dataset.snapAct === 'restore') restoreSnapshot(id);
+    else { S.snapshots = S.snapshots.filter(s => s.id !== id); save('snapshots'); renderSnapshots(); }
+  });
+
+  // Run panel
+  $('#btnRefresh').onclick = () => { refreshPreview(); flashRunPanel(); };
+  $('#btnOpenTab').onclick = openPreviewInTab;
+  $('#btnAuto').onclick = () => { S.settings.autoPreview = !S.settings.autoPreview; $('#btnAuto').classList.toggle('on', S.settings.autoPreview); save('settings'); if (S.settings.autoPreview) refreshPreview(); };
+  $$('[data-device]').forEach(b => b.onclick = () => setDevice(b.dataset.device));
+  $$('[data-term]').forEach(b => b.onclick = () => { setTermTab(b.dataset.term); if (S.layout.termCollapsed) toggleTerminal(false); });
+  $('#btnTermToggle').onclick = () => toggleTerminal();
+  $('#btnTermMax').onclick = toggleTermMax;
+  $('#btnTermClear').onclick = () => { if (S.layout.termTab === 'py') $('#pyOut').innerHTML = ''; else clearConsole(false); };
+  $('#btnTermCopy').onclick = () => copyText((S.layout.termTab === 'py' ? $('#pyOut') : $('#conOut')).innerText);
+  $('#btnPyStop').onclick = () => Py.stop();
+  $('#btnPyRestart').onclick = () => Py.restart();
+  $('#btnStdin').onclick = () => { S.stdinOpen = !S.stdinOpen; $('#btnStdin').classList.toggle('active', S.stdinOpen); setTermTab('py'); if (S.stdinOpen) $('#stdin').focus(); };
+  $('#btnPip').onclick = () => { const p = prompt('Install Python package(s) with micropip (pure-Python wheels or Pyodide packages), e.g. "rich sympy":'); if (p && p.trim()) replSubmit('%pip install ' + p.trim()); };
+  const repl = $('#replInput');
+  repl.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); const v = repl.value; repl.value = ''; replSubmit(v); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); if (replIdx > 0) { replIdx--; repl.value = S.replHistory[replIdx] || ''; } }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); if (replIdx < S.replHistory.length) { replIdx++; repl.value = S.replHistory[replIdx] || ''; } }
+  });
+
+  // Mobile nav
+  $$('#mobileNav [data-nav]').forEach(b => b.onclick = () => setMobilePanel(b.dataset.nav));
+
+  // Menus & modals
+  document.addEventListener('click', (e) => {
+    const trigger = e.target.closest('[data-menu]');
+    if (trigger) { const m = $('#' + trigger.dataset.menu); const willOpen = !m.classList.contains('open'); closeMenus(m); m.classList.toggle('open', willOpen); e.stopPropagation(); return; }
+    if (!e.target.closest('.menu')) closeMenus();
+    if (e.target.closest('[data-close]') || e.target.classList.contains('modal')) closeModals();
+  });
+
+  // Global shortcuts
+  document.addEventListener('keydown', (e) => {
+    const mod = e.ctrlKey || e.metaKey;
+    const key = (e.key || '').toLowerCase();
+    const inField = e.target.matches('input, textarea, select, [contenteditable]') || e.target.closest('.CodeMirror');
+    if (e.key === 'Escape') {
+      if (AI.generating) stopGeneration();
+      closeMenus(); closeModals(); $('#convDrawer').classList.remove('open');
+    }
+    if (mod && e.key === 'Enter' && e.target.id !== 'input' && !e.target.closest('.CodeMirror')) { e.preventDefault(); runCurrent(); }
+    if (mod && key === 's' && !e.target.closest('.CodeMirror')) { e.preventDefault(); saveSnapshot('Manual save'); }
+    if (mod && key === 'k') { e.preventDefault(); setMobilePanel('chat'); input.focus(); }
+    if (mod && e.altKey && key === 'n') { e.preventDefault(); newConversation(); }
+    if (e.altKey && ['1', '2', '3'].includes(e.key)) {
+      e.preventDefault();
+      const p = PANELS[+e.key - 1];
+      setMobilePanel(p);
+      if (p === 'chat') input.focus(); else if (p === 'code') Editor.focus(); else $('#replInput').focus();
+    }
+    if (e.key === '?' && !inField) { e.preventDefault(); openModal('#modalHelp'); }
+  });
+
+  window.addEventListener('pagehide', flushSaves);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushSaves(); });
+  window.addEventListener('online', () => toast('Back online', 'ok', { duration: 1500 }));
+  window.addEventListener('offline', () => toast('Offline — cached models, the sandbox and Python keep working.', 'info'));
+  window.addEventListener('beforeunload', (e) => { if (AI.mode === 'loading' || AI.generating) { e.preventDefault(); e.returnValue = ''; } });
+}
+
+// ---------------------------------------------------------------------
+// 19. Boot
+// ---------------------------------------------------------------------
+async function boot() {
+  await loadState();
+  Editor.init();
+  initKeybar();
+  renderTemplatesMenu();
+  bindEvents();
+  bindSettings();
+  initVoice();
+  initResizers();
+  initSwipe();
+  initViewport();
+  applyLayout();
+  setDevice(S.layout.device);
+  setTermTab(S.layout.termTab);
+  setActiveFile(S.activeFile);
+  setMobilePanel(S.mobilePanel);
+  populateModelSelects();
+  syncSettingsForm();
+  renderConvList();
+  renderMessages();
+  refreshPreview();
+  replIdx = S.replHistory.length;
+  setPyStatus('idle', 'Python idle — loads on first run');
+  termLine('sys', 'OmniCore Python terminal. Press Run on main.py or type below. Charts from plt.show() render here.');
+  icons();
+  await loadFromHash();
+
+  await detectGPU();
+  syncSettingsForm();
+  populateModelSelects();
+  if (S.settings.demo || !GPU.ok) {
+    AI.mode = 'demo';
+    setStatus('demo', 'Demo mode');
+    if (!GPU.ok) $('#chipMode').title = GPU.reason;
+  } else {
+    AI.mode = 'idle';
+    setStatus('', 'No model loaded');
+  }
+
+  // Load WebLLM in the background to inspect the cache; auto-load a cached model if enabled.
+  if (GPU.ok) {
+    try {
+      await importWebLLM();
+      await refreshCacheInfo();
+      if (S.settings.autoLoad && !S.settings.demo && AI.cached[S.settings.model]) loadModel();
+    } catch (e) {
+      console.warn('WebLLM could not be loaded', e);
+      if (!S.settings.demo) toast('Could not load the WebLLM runtime (offline?). Demo mode is available.', 'warn', { action: { label: 'Use demo', run: () => enableDemo() } });
+    }
+  } else refreshCacheInfo();
+  icons();
+}
+
+boot().catch((e) => { console.error(e); toast('Startup error: ' + e.message, 'err', { duration: 10000 }); });
+</script>
+</body>
+</html>
